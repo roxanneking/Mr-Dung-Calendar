@@ -213,8 +213,8 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
         </>
       ) : (
         <>
-          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
-            <div>
+          <div className="mb-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 md:flex-row md:flex-wrap md:items-end">
+            <div className="w-full md:w-auto">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Từ ngày
               </p>
@@ -222,10 +222,10 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
                 type="date"
                 value={filterFrom}
                 onChange={(event) => setFilterFrom(event.target.value)}
-                className="h-10 rounded-xl border border-brand-200 px-3 text-sm"
+                className="h-10 w-full rounded-xl border border-brand-200 px-3 text-sm md:w-auto"
               />
             </div>
-            <div>
+            <div className="w-full md:w-auto">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Đến ngày
               </p>
@@ -233,14 +233,14 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
                 type="date"
                 value={filterTo}
                 onChange={(event) => setFilterTo(event.target.value)}
-                className="h-10 rounded-xl border border-brand-200 px-3 text-sm"
+                className="h-10 w-full rounded-xl border border-brand-200 px-3 text-sm md:w-auto"
               />
             </div>
-            <div className="ml-auto flex gap-2">
-              <Button variant="outline" onClick={refreshEvents} disabled={loading}>
+            <div className="flex w-full gap-2 md:ml-auto md:w-auto">
+              <Button className="flex-1 md:flex-none" variant="outline" onClick={refreshEvents} disabled={loading}>
                 {loading ? "Đang tải..." : "Làm mới"}
               </Button>
-              <Button variant="primary" onClick={() => setModal({ open: true, mode: "create" })}>
+              <Button className="flex-1 md:flex-none" variant="primary" onClick={() => setModal({ open: true, mode: "create" })}>
                 Thêm lịch
               </Button>
             </div>
@@ -251,62 +251,103 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
               Không có lịch trình trong khoảng thời gian lọc.
             </div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-brand-100 bg-white shadow-soft">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-brand-50 text-left text-xs uppercase tracking-wide text-brand-800">
-                    <th className="px-4 py-3">Ngày</th>
-                    <th className="px-4 py-3">Giờ</th>
-                    <th className="px-4 py-3">Nội dung</th>
-                    <th className="px-4 py-3">Loại</th>
-                    <th className="px-4 py-3 text-right">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredEvents.map((event) => {
-                    const priority = getPriorityMeta(event.category);
-                    return (
-                      <tr key={event.id} className="border-t border-slate-100 align-top">
-                        <td className="px-4 py-3 text-sm text-slate-700">
-                          {format(new Date(event.date), "dd/MM/yyyy")}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-700">
-                          {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-slate-900">{event.title}</p>
-                          {event.location && (
-                            <p className="mt-1 text-sm text-slate-500">{event.location}</p>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            style={{
-                              backgroundColor: `${priority.color}20`,
-                              color: priority.color
-                            }}
-                          >
-                            {priority.label}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              onClick={() => setModal({ open: true, mode: "edit", event })}
+            <div className="space-y-3">
+              <div className="space-y-3 md:hidden">
+                {filteredEvents.map((event) => {
+                  const priority = getPriorityMeta(event.category);
+                  return (
+                    <div key={event.id} className="rounded-xl border border-brand-100 bg-white p-4 shadow-soft">
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <p className="font-semibold text-slate-900">{event.title}</p>
+                        <Badge
+                          style={{
+                            backgroundColor: `${priority.color}20`,
+                            color: priority.color
+                          }}
+                        >
+                          {priority.label}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-slate-600">
+                        {format(new Date(event.date), "dd/MM/yyyy")} | {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
+                      </p>
+                      {event.location && (
+                        <p className="mt-1 text-sm text-slate-500">{event.location}</p>
+                      )}
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          className="flex-1"
+                          variant="outline"
+                          onClick={() => setModal({ open: true, mode: "edit", event })}
+                        >
+                          Sửa
+                        </Button>
+                        <Button className="flex-1" variant="danger" onClick={() => deleteEvent(event)}>
+                          Xóa
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden overflow-x-auto rounded-2xl border border-brand-100 bg-white shadow-soft md:block">
+                <table className="w-full min-w-[760px] border-collapse">
+                  <thead>
+                    <tr className="bg-brand-50 text-left text-xs uppercase tracking-wide text-brand-800">
+                      <th className="px-4 py-3">Ngày</th>
+                      <th className="px-4 py-3">Giờ</th>
+                      <th className="px-4 py-3">Nội dung</th>
+                      <th className="px-4 py-3">Loại</th>
+                      <th className="px-4 py-3 text-right">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredEvents.map((event) => {
+                      const priority = getPriorityMeta(event.category);
+                      return (
+                        <tr key={event.id} className="border-t border-slate-100 align-top">
+                          <td className="px-4 py-3 text-sm text-slate-700">
+                            {format(new Date(event.date), "dd/MM/yyyy")}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-700">
+                            {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-slate-900">{event.title}</p>
+                            {event.location && (
+                              <p className="mt-1 text-sm text-slate-500">{event.location}</p>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge
+                              style={{
+                                backgroundColor: `${priority.color}20`,
+                                color: priority.color
+                              }}
                             >
-                              Sửa
-                            </Button>
-                            <Button variant="danger" onClick={() => deleteEvent(event)}>
-                              Xóa
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                              {priority.label}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => setModal({ open: true, mode: "edit", event })}
+                              >
+                                Sửa
+                              </Button>
+                              <Button variant="danger" onClick={() => deleteEvent(event)}>
+                                Xóa
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </>

@@ -63,68 +63,72 @@ export function MonthCalendar({
         </div>
       </header>
 
-      <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase text-slate-500">
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-          <div key={day}>{day}</div>
-        ))}
-      </div>
+      <div className="overflow-x-auto">
+        <div className="min-w-[720px]">
+          <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase text-slate-500">
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+              <div key={day}>{day}</div>
+            ))}
+          </div>
 
-      <div className="mt-2 grid grid-cols-7 gap-2">
-        {days.map((day) => {
-          const key = format(day, "yyyy-MM-dd");
-          const dayEvents = eventsByDate.get(key) ?? [];
-          const isToday = isSameDay(day, new Date());
+          <div className="mt-2 grid grid-cols-7 gap-2">
+            {days.map((day) => {
+              const key = format(day, "yyyy-MM-dd");
+              const dayEvents = eventsByDate.get(key) ?? [];
+              const isToday = isSameDay(day, new Date());
 
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onSelectedDateChange(day)}
-              className={cn(
-                "group min-h-[84px] rounded-xl border p-2 text-left transition",
-                isSameMonth(day, month)
-                  ? "border-brand-100 bg-white hover:border-brand-300"
-                  : "border-slate-100 bg-slate-50/70 text-slate-400",
-                isSameDay(day, selectedDate) &&
-                  "border-brand-600 ring-2 ring-brand-200",
-                isToday && "bg-brand-50"
-              )}
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <span
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onSelectedDateChange(day)}
                   className={cn(
-                    "text-sm font-semibold",
-                    isToday ? "text-brand-800" : "text-slate-700"
+                    "group min-h-[84px] rounded-xl border p-2 text-left transition",
+                    isSameMonth(day, month)
+                      ? "border-brand-100 bg-white hover:border-brand-300"
+                      : "border-slate-100 bg-slate-50/70 text-slate-400",
+                    isSameDay(day, selectedDate) &&
+                      "border-brand-600 ring-2 ring-brand-200",
+                    isToday && "bg-brand-50"
                   )}
                 >
-                  {format(day, "d")}
-                </span>
-                {isToday && (
-                  <span className="rounded-full bg-brand-700 px-2 py-0.5 text-[10px] font-medium text-white">
-                    Today
-                  </span>
-                )}
-              </div>
-              <div className="space-y-1">
-                {dayEvents.slice(0, 2).map((event) => (
-                  <div key={event.id}>
-                    <div
-                      className="truncate rounded-md px-2 py-0.5 text-xs text-white"
-                      style={{ backgroundColor: getPriorityMeta(event.category).color }}
+                  <div className="mb-2 flex items-center justify-between">
+                    <span
+                      className={cn(
+                        "text-sm font-semibold",
+                        isToday ? "text-brand-800" : "text-slate-700"
+                      )}
                     >
-                      {event.start_time.slice(0, 5)} {event.title}
-                    </div>
+                      {format(day, "d")}
+                    </span>
+                    {isToday && (
+                      <span className="rounded-full bg-brand-700 px-2 py-0.5 text-[10px] font-medium text-white">
+                        Today
+                      </span>
+                    )}
                   </div>
-                ))}
-                {dayEvents.length > 2 && (
-                  <p className="text-xs font-medium text-slate-500">
-                    +{dayEvents.length - 2} lịch khác
-                  </p>
-                )}
-              </div>
-            </button>
-          );
-        })}
+                  <div className="space-y-1">
+                    {dayEvents.slice(0, 2).map((event) => (
+                      <div key={event.id}>
+                        <div
+                          className="truncate rounded-md px-2 py-0.5 text-xs text-white"
+                          style={{ backgroundColor: getPriorityMeta(event.category).color }}
+                        >
+                          {event.start_time.slice(0, 5)} {event.title}
+                        </div>
+                      </div>
+                    ))}
+                    {dayEvents.length > 2 && (
+                      <p className="text-xs font-medium text-slate-500">
+                        +{dayEvents.length - 2} lịch khác
+                      </p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </section>
   );
