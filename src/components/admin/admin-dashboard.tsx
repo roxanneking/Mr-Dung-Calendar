@@ -104,8 +104,8 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
   }
 
   async function copyPublicLink() {
-    await navigator.clipboard.writeText(`${window.location.origin}/`);
-    notify("Đã copy link public gửi sếp.", "success");
+    await navigator.clipboard.writeText(`${window.location.origin}/boss`);
+    notify("Đã copy link gửi sếp.", "success");
   }
 
   return (

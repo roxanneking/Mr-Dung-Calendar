@@ -1,9 +1,5 @@
-import { PublicCalendarView } from "@/components/public/public-calendar-view";
-import { getAllEvents } from "@/features/events/services/events.service";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function HomePage() {
-  const events = await getAllEvents();
-  return <PublicCalendarView events={events} />;
+export default function HomePage() {
+  redirect("/admin/login");
 }
