@@ -2,7 +2,10 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 
-import { EVENT_CATEGORIES, EVENT_COLORS } from "@/features/events/constants";
+import {
+  PRIORITY_OPTIONS,
+  getPriorityMeta
+} from "@/features/events/constants";
 import { EventFormInput, EventRecord } from "@/features/events/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +30,7 @@ const EMPTY_FORM: EventFormInput = {
   location: "",
   description: "",
   category: "meeting",
-  color: "#059669"
+  color: getPriorityMeta("meeting").color
 };
 
 export function EventFormModal({
@@ -97,20 +100,22 @@ export function EventFormModal({
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Loại lịch
+              Mức ưu tiên
             </label>
             <Select
               value={form.category}
-              onChange={(e) =>
+              onChange={(e) => {
+                const category = e.target.value as EventFormInput["category"];
                 setForm((prev) => ({
                   ...prev,
-                  category: e.target.value as EventFormInput["category"]
-                }))
-              }
+                  category,
+                  color: getPriorityMeta(category).color
+                }));
+              }}
             >
-              {EVENT_CATEGORIES.map((category) => (
-                <option key={category.value} value={category.value}>
-                  {category.label}
+              {PRIORITY_OPTIONS.map((priority) => (
+                <option key={priority.value} value={priority.value}>
+                  {priority.label}
                 </option>
               ))}
             </Select>
@@ -163,24 +168,13 @@ export function EventFormModal({
               placeholder="Nội dung cần chuẩn bị..."
             />
           </div>
-          <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Màu nhận diện
-            </label>
-            <div className="flex gap-2">
-              {EVENT_COLORS.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setForm((prev) => ({ ...prev, color }))}
-                  className={[
-                    "h-7 w-7 rounded-full border-2",
-                    form.color === color ? "border-slate-800" : "border-transparent"
-                  ].join(" ")}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
+          <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+            <p className="font-medium text-slate-700">Ghi chú màu ưu tiên</p>
+            <ul className="mt-2 space-y-1 text-slate-600">
+              <li>- Đỏ: Quan trọng</li>
+              <li>- Vàng: Trung bình</li>
+              <li>- Xanh lá: Thấp</li>
+            </ul>
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">

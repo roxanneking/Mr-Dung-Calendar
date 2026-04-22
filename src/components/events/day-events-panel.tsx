@@ -2,6 +2,7 @@
 
 import { format } from "date-fns";
 import { MapPin, NotebookText, Timer } from "lucide-react";
+import { getPriorityMeta } from "@/features/events/constants";
 import { EventRecord } from "@/features/events/types";
 import { Badge } from "@/components/ui/badge";
 
@@ -28,11 +29,13 @@ export function DayEventsPanel({ selectedDate, events }: DayEventsPanelProps) {
         </div>
       ) : (
         <ul className="space-y-3">
-          {events.map((event) => (
-            <li
-              key={event.id}
-              className="rounded-xl border border-slate-100 bg-white p-4"
-            >
+          {events.map((event) => {
+            const priority = getPriorityMeta(event.category);
+            return (
+              <li
+                key={event.id}
+                className="rounded-xl border border-slate-100 bg-white p-4"
+              >
               <div className="mb-2 flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-slate-900">{event.title}</p>
@@ -41,7 +44,14 @@ export function DayEventsPanel({ selectedDate, events }: DayEventsPanelProps) {
                     {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
                   </p>
                 </div>
-                <Badge>{event.category}</Badge>
+                <Badge
+                  style={{
+                    backgroundColor: `${priority.color}20`,
+                    color: priority.color
+                  }}
+                >
+                  {priority.label}
+                </Badge>
               </div>
 
               <div className="space-y-1 text-sm text-slate-600">
@@ -58,8 +68,9 @@ export function DayEventsPanel({ selectedDate, events }: DayEventsPanelProps) {
                   </p>
                 )}
               </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </aside>

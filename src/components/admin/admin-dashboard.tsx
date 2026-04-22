@@ -7,6 +7,7 @@ import { EventFormModal } from "@/components/admin/event-form-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/supabase/client";
+import { PRIORITY_OPTIONS, getPriorityMeta } from "@/features/events/constants";
 import { EventFormInput, EventRecord } from "@/features/events/types";
 import { useToast } from "@/hooks/use-toast";
 import { signOutAdmin } from "@/services/auth.service";
@@ -102,6 +103,11 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
     window.location.href = "/admin/login";
   }
 
+  async function copyPublicLink() {
+    await navigator.clipboard.writeText(`${window.location.origin}/`);
+    notify("Đã copy link public gửi sếp.", "success");
+  }
+
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-8">
       <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-brand-100 bg-white p-5 shadow-soft md:flex-row md:items-center md:justify-between">
@@ -126,9 +132,26 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
           >
             Thêm lịch
           </Button>
+          <Button variant="outline" onClick={copyPublicLink}>
+            Copy link gửi sếp
+          </Button>
           <Button variant="ghost" onClick={handleSignOut}>
             Đăng xuất
           </Button>
+        </div>
+      </div>
+
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+        <p className="text-sm font-semibold text-slate-800">Ghi chú màu ưu tiên</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {PRIORITY_OPTIONS.map((priority) => (
+            <Badge
+              key={priority.value}
+              style={{ backgroundColor: `${priority.color}20`, color: priority.color }}
+            >
+              {priority.label}
+            </Badge>
+          ))}
         </div>
       </div>
 
@@ -169,7 +192,7 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
                   </td>
                   <td className="px-4 py-3">
                     <Badge style={{ backgroundColor: `${event.color}20`, color: event.color }}>
-                      {event.category}
+                      {getPriorityMeta(event.category).label}
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
