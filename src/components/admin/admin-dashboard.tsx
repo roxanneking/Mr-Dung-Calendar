@@ -372,7 +372,7 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
         </div>
       ) : sortedEvents.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50 p-5 text-sm text-brand-900">
-          Chưa có lịch trình nào. Nhấn "Thêm lịch" để bắt đầu.
+          Chưa có lịch trình nào. Nhấn &quot;Thêm lịch&quot; để bắt đầu.
         </div>
       ) : viewMode === "overview" ? (
         <>
