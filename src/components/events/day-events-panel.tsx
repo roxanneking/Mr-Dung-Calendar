@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { ChevronLeft, ChevronRight, MapPin, NotebookText, Timer } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, NotebookText, Timer, User } from "lucide-react";
 import { getPriorityMeta } from "@/features/events/constants";
 import { EventRecord } from "@/features/events/types";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,7 @@ export function DayEventsPanel({
     <section className="rounded-2xl border border-brand-100 bg-white p-5 shadow-soft">
       <div className="mb-4 flex items-center justify-between border-b border-brand-100 pb-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Chi tiết trong ngày
+          Tóm tắt công việc
         </p>
         <div className="flex gap-2">
           <Button type="button" variant="outline" className="h-8 px-2" onClick={onPrevDate}>
@@ -75,6 +75,12 @@ export function DayEventsPanel({
                   <p className="flex items-center gap-1">
                     <MapPin className="h-4 w-4" />
                     {event.location}
+                  </p>
+                )}
+                {event.owner && (
+                  <p className="flex items-center gap-1">
+                    <User className="h-4 w-4" />
+                    {event.owner}
                   </p>
                 )}
                 {event.description && (

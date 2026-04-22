@@ -47,6 +47,11 @@ export const DEFAULT_EVENT_FORM: EventFormInput = {
   end_time: "10:00",
   location: "",
   description: "",
+  owner: "",
+  deadline: "",
+  status: "",
+  result: "",
+  notes: "",
   category: "meeting",
   color: "#059669"
 };

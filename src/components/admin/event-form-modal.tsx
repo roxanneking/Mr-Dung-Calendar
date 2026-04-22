@@ -7,6 +7,7 @@ import {
   getPriorityMeta
 } from "@/features/events/constants";
 import { EventFormInput, EventRecord } from "@/features/events/types";
+import { getWeekOfMonthLabel } from "@/features/events/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -29,6 +30,11 @@ const EMPTY_FORM: EventFormInput = {
   end_time: "10:00",
   location: "",
   description: "",
+  owner: "",
+  deadline: "",
+  status: "",
+  result: "",
+  notes: "",
   category: "meeting",
   color: getPriorityMeta("meeting").color
 };
@@ -55,6 +61,11 @@ export function EventFormModal({
         end_time: initialEvent.end_time.slice(0, 5),
         location: initialEvent.location ?? "",
         description: initialEvent.description ?? "",
+        owner: initialEvent.owner ?? "",
+        deadline: initialEvent.deadline ?? "",
+        status: initialEvent.status ?? "",
+        result: initialEvent.result ?? "",
+        notes: initialEvent.notes ?? "",
         category: initialEvent.category,
         color: initialEvent.color
       });
@@ -78,7 +89,7 @@ export function EventFormModal({
         <div className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Tiêu đề
+              Nội dung công việc
             </label>
             <Input
               required
@@ -89,7 +100,7 @@ export function EventFormModal({
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Ngày
+              Thời gian (ngày)
             </label>
             <Input
               required
@@ -100,7 +111,17 @@ export function EventFormModal({
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Mức ưu tiên
+              Tuần trong tháng
+            </label>
+            <Input
+              readOnly
+              value={form.date ? getWeekOfMonthLabel(form.date) : ""}
+              placeholder="Tự động theo ngày"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Mức độ
             </label>
             <Select
               value={form.category}
@@ -119,6 +140,16 @@ export function EventFormModal({
                 </option>
               ))}
             </Select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Người phụ trách
+            </label>
+            <Input
+              value={form.owner}
+              onChange={(e) => setForm((prev) => ({ ...prev, owner: e.target.value }))}
+              placeholder="Ví dụ: Mrs Hà"
+            />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
@@ -144,6 +175,16 @@ export function EventFormModal({
               onChange={(e) => setForm((prev) => ({ ...prev, end_time: e.target.value }))}
             />
           </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Deadline
+            </label>
+            <Input
+              type="date"
+              value={form.deadline}
+              onChange={(e) => setForm((prev) => ({ ...prev, deadline: e.target.value }))}
+            />
+          </div>
           <div className="md:col-span-2">
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Địa điểm
@@ -158,7 +199,7 @@ export function EventFormModal({
           </div>
           <div className="md:col-span-2">
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Mô tả
+              Chi tiết công việc
             </label>
             <Textarea
               value={form.description}
@@ -166,6 +207,36 @@ export function EventFormModal({
                 setForm((prev) => ({ ...prev, description: e.target.value }))
               }
               placeholder="Nội dung cần chuẩn bị..."
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Trạng thái
+            </label>
+            <Input
+              value={form.status}
+              onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
+              placeholder="Đang thực hiện / Hoàn thành"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Kết quả
+            </label>
+            <Input
+              value={form.result}
+              onChange={(e) => setForm((prev) => ({ ...prev, result: e.target.value }))}
+              placeholder="Ví dụ: Đạt"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Ghi chú
+            </label>
+            <Textarea
+              value={form.notes}
+              onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+              placeholder="Ghi chú bổ sung..."
             />
           </div>
           <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">

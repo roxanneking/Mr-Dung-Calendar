@@ -13,6 +13,11 @@ export interface EventRecord {
   end_time: string;
   location: string | null;
   description: string | null;
+  owner: string | null;
+  deadline: string | null;
+  status: string | null;
+  result: string | null;
+  notes: string | null;
   category: EventCategory;
   color: string;
   created_by: string | null;
@@ -27,6 +32,11 @@ export interface EventFormInput {
   end_time: string;
   location: string;
   description: string;
+  owner: string;
+  deadline: string;
+  status: string;
+  result: string;
+  notes: string;
   category: EventCategory;
   color: string;
 }

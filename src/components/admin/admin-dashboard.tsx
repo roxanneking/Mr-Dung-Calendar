@@ -11,7 +11,12 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/supabase/client";
 import { PRIORITY_OPTIONS, getPriorityMeta } from "@/features/events/constants";
 import { EventFormInput, EventRecord } from "@/features/events/types";
-import { groupEventsByDate, sortEventsByTime } from "@/features/events/utils";
+import {
+  getWeekOfMonthLabel,
+  groupEventsByDate,
+  groupEventsByWeek,
+  sortEventsByTime
+} from "@/features/events/utils";
 import { useToast } from "@/hooks/use-toast";
 import { signOutAdmin } from "@/services/auth.service";
 
@@ -31,8 +36,7 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
   const [viewMode, setViewMode] = useState<"overview" | "detail">("overview");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [month, setMonth] = useState(startOfMonth(new Date()));
-  const [filterFrom, setFilterFrom] = useState("");
-  const [filterTo, setFilterTo] = useState("");
+  const [detailMonth, setDetailMonth] = useState(format(new Date(), "yyyy-MM"));
   const { notify } = useToast();
   const supabase = createClient();
 
@@ -51,17 +55,14 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
     return sortEventsByTime(eventsByDate.get(key) ?? []);
   }, [eventsByDate, selectedDate]);
 
-  const filteredEvents = useMemo(() => {
-    return sortedEvents.filter((event) => {
-      if (filterFrom && event.date < filterFrom) {
-        return false;
-      }
-      if (filterTo && event.date > filterTo) {
-        return false;
-      }
-      return true;
-    });
-  }, [filterFrom, filterTo, sortedEvents]);
+  const monthEvents = useMemo(() => {
+    if (!detailMonth) {
+      return sortedEvents;
+    }
+    return sortedEvents.filter((event) => event.date.startsWith(detailMonth));
+  }, [detailMonth, sortedEvents]);
+
+  const weekEvents = useMemo(() => groupEventsByWeek(monthEvents), [monthEvents]);
 
   async function refreshEvents() {
     setLoading(true);
@@ -85,6 +86,11 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
       ...values,
       location: values.location || null,
       description: values.description || null,
+      owner: values.owner || null,
+      deadline: values.deadline || null,
+      status: values.status || null,
+      result: values.result || null,
+      notes: values.notes || null,
       start_time: `${values.start_time}:00`,
       end_time: `${values.end_time}:00`
     };
@@ -98,6 +104,13 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
     setSubmitting(false);
 
     if (error) {
+      if (error.message.includes("row-level security")) {
+        notify(
+          "Bạn chưa được map vào bảng admin_users nên chưa có quyền thêm/sửa/xóa.",
+          "error"
+        );
+        return;
+      }
       notify(`Lưu lịch thất bại: ${error.message}`, "error");
       return;
     }
@@ -213,26 +226,15 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
         </>
       ) : (
         <>
-          <div className="mb-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 md:flex-row md:flex-wrap md:items-end">
+          <div className="mb-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 md:flex-row md:items-end">
             <div className="w-full md:w-auto">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Từ ngày
+                Tháng xem chi tiết
               </p>
               <input
-                type="date"
-                value={filterFrom}
-                onChange={(event) => setFilterFrom(event.target.value)}
-                className="h-10 w-full rounded-xl border border-brand-200 px-3 text-sm md:w-auto"
-              />
-            </div>
-            <div className="w-full md:w-auto">
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Đến ngày
-              </p>
-              <input
-                type="date"
-                value={filterTo}
-                onChange={(event) => setFilterTo(event.target.value)}
+                type="month"
+                value={detailMonth}
+                onChange={(event) => setDetailMonth(event.target.value)}
                 className="h-10 w-full rounded-xl border border-brand-200 px-3 text-sm md:w-auto"
               />
             </div>
@@ -246,105 +248,120 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
             </div>
           </div>
 
-          {filteredEvents.length === 0 ? (
+          {monthEvents.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50 p-5 text-sm text-brand-900">
-              Không có lịch trình trong khoảng thời gian lọc.
+              Không có lịch trình trong tháng đã chọn.
             </div>
           ) : (
             <div className="space-y-3">
               <div className="space-y-3 md:hidden">
-                {filteredEvents.map((event) => {
-                  const priority = getPriorityMeta(event.category);
-                  return (
-                    <div key={event.id} className="rounded-xl border border-brand-100 bg-white p-4 shadow-soft">
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        <p className="font-semibold text-slate-900">{event.title}</p>
-                        <Badge
-                          style={{
-                            backgroundColor: `${priority.color}20`,
-                            color: priority.color
-                          }}
-                        >
-                          {priority.label}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-slate-600">
-                        {format(new Date(event.date), "dd/MM/yyyy")} | {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
-                      </p>
-                      {event.location && (
-                        <p className="mt-1 text-sm text-slate-500">{event.location}</p>
-                      )}
-                      <div className="mt-3 flex gap-2">
-                        <Button
-                          className="flex-1"
-                          variant="outline"
-                          onClick={() => setModal({ open: true, mode: "edit", event })}
-                        >
-                          Sửa
-                        </Button>
-                        <Button className="flex-1" variant="danger" onClick={() => deleteEvent(event)}>
-                          Xóa
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="hidden overflow-x-auto rounded-2xl border border-brand-100 bg-white shadow-soft md:block">
-                <table className="w-full min-w-[760px] border-collapse">
-                  <thead>
-                    <tr className="bg-brand-50 text-left text-xs uppercase tracking-wide text-brand-800">
-                      <th className="px-4 py-3">Ngày</th>
-                      <th className="px-4 py-3">Giờ</th>
-                      <th className="px-4 py-3">Nội dung</th>
-                      <th className="px-4 py-3">Loại</th>
-                      <th className="px-4 py-3 text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredEvents.map((event) => {
-                      const priority = getPriorityMeta(event.category);
-                      return (
-                        <tr key={event.id} className="border-t border-slate-100 align-top">
-                          <td className="px-4 py-3 text-sm text-slate-700">
-                            {format(new Date(event.date), "dd/MM/yyyy")}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-slate-700">
-                            {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <p className="font-medium text-slate-900">{event.title}</p>
-                            {event.location && (
-                              <p className="mt-1 text-sm text-slate-500">{event.location}</p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <Badge
-                              style={{
-                                backgroundColor: `${priority.color}20`,
-                                color: priority.color
-                              }}
-                            >
-                              {priority.label}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex justify-end gap-2">
+                {["W1", "W2", "W3", "W4", "W5"].map((week) => (
+                  <div key={week} className="rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="mb-2 text-sm font-semibold text-brand-900">{week}</p>
+                    <div className="space-y-2">
+                      {(weekEvents.get(week) ?? []).map((event) => {
+                        const priority = getPriorityMeta(event.category);
+                        return (
+                          <div key={event.id} className="rounded-lg border border-brand-100 bg-white p-3">
+                            <div className="mb-1 flex items-start justify-between gap-2">
+                              <p className="font-semibold text-slate-900">{event.title}</p>
+                              <Badge
+                                style={{
+                                  backgroundColor: `${priority.color}20`,
+                                  color: priority.color
+                                }}
+                              >
+                                {priority.label}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-slate-600">
+                              {format(new Date(event.date), "dd/MM/yyyy")} | {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
+                            </p>
+                            <div className="mt-2 flex gap-2">
                               <Button
+                                className="flex-1"
                                 variant="outline"
                                 onClick={() => setModal({ open: true, mode: "edit", event })}
                               >
                                 Sửa
                               </Button>
-                              <Button variant="danger" onClick={() => deleteEvent(event)}>
+                              <Button className="flex-1" variant="danger" onClick={() => deleteEvent(event)}>
                                 Xóa
                               </Button>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden overflow-x-auto rounded-2xl border border-brand-100 bg-white shadow-soft md:block">
+                <table className="w-full min-w-[1350px] border-collapse">
+                  <thead>
+                    <tr className="bg-brand-50 text-left text-xs uppercase tracking-wide text-brand-800">
+                      <th className="px-4 py-3">Tuần</th>
+                      <th className="px-4 py-3">Giờ</th>
+                      <th className="px-4 py-3">Nội dung công việc</th>
+                      <th className="px-4 py-3">Chi tiết công việc</th>
+                      <th className="px-4 py-3">Người phụ trách</th>
+                      <th className="px-4 py-3">Deadline</th>
+                      <th className="px-4 py-3">Địa điểm</th>
+                      <th className="px-4 py-3">Trạng thái</th>
+                      <th className="px-4 py-3">Kết quả</th>
+                      <th className="px-4 py-3">Ghi chú</th>
+                      <th className="px-4 py-3">Mức độ</th>
+                      <th className="px-4 py-3 text-right">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {["W1", "W2", "W3", "W4", "W5"].map((week) =>
+                      (weekEvents.get(week) ?? []).map((event) => {
+                        const priority = getPriorityMeta(event.category);
+                        return (
+                          <tr key={event.id} className="border-t border-slate-100 align-top">
+                            <td className="px-4 py-3 text-sm text-slate-700">{week}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">
+                              {format(new Date(event.date), "dd/MM/yyyy")} - {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-900">{event.title}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{event.description ?? ""}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{event.owner ?? ""}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">
+                              {event.deadline ? format(new Date(event.deadline), "dd/MM/yyyy") : ""}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{event.location ?? ""}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{event.status ?? ""}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{event.result ?? ""}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{event.notes ?? ""}</td>
+                            <td className="px-4 py-3">
+                              <Badge
+                                style={{
+                                  backgroundColor: `${priority.color}20`,
+                                  color: priority.color
+                                }}
+                              >
+                                {priority.label}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setModal({ open: true, mode: "edit", event })}
+                                >
+                                  Sửa
+                                </Button>
+                                <Button variant="danger" onClick={() => deleteEvent(event)}>
+                                  Xóa
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
