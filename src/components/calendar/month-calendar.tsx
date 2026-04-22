@@ -13,6 +13,7 @@ import {
   subMonths
 } from "date-fns";
 
+import { getPriorityMeta } from "@/features/events/constants";
 import { EventRecord } from "@/features/events/types";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -106,12 +107,13 @@ export function MonthCalendar({
               </div>
               <div className="space-y-1">
                 {dayEvents.slice(0, 2).map((event) => (
-                  <div
-                    key={event.id}
-                    className="truncate rounded-md px-2 py-0.5 text-xs text-white"
-                    style={{ backgroundColor: event.color }}
-                  >
-                    {event.start_time.slice(0, 5)} {event.title}
+                  <div key={event.id}>
+                    <div
+                      className="truncate rounded-md px-2 py-0.5 text-xs text-white"
+                      style={{ backgroundColor: getPriorityMeta(event.category).color }}
+                    >
+                      {event.start_time.slice(0, 5)} {event.title}
+                    </div>
                   </div>
                 ))}
                 {dayEvents.length > 2 && (

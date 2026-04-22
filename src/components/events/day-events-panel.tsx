@@ -1,27 +1,43 @@
 "use client";
 
 import { format } from "date-fns";
-import { MapPin, NotebookText, Timer } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, NotebookText, Timer } from "lucide-react";
 import { getPriorityMeta } from "@/features/events/constants";
 import { EventRecord } from "@/features/events/types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface DayEventsPanelProps {
   selectedDate: Date;
   events: EventRecord[];
+  onPrevDate?: () => void;
+  onNextDate?: () => void;
 }
 
-export function DayEventsPanel({ selectedDate, events }: DayEventsPanelProps) {
+export function DayEventsPanel({
+  selectedDate,
+  events,
+  onPrevDate,
+  onNextDate
+}: DayEventsPanelProps) {
   return (
-    <aside className="h-fit rounded-2xl border border-brand-100 bg-white p-5 shadow-soft">
-      <div className="mb-4 border-b border-brand-100 pb-4">
+    <section className="rounded-2xl border border-brand-100 bg-white p-5 shadow-soft">
+      <div className="mb-4 flex items-center justify-between border-b border-brand-100 pb-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Chi tiết trong ngày
         </p>
-        <h3 className="mt-1 text-lg font-semibold text-brand-900">
-          {format(selectedDate, "EEEE, dd/MM/yyyy")}
-        </h3>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" className="h-8 px-2" onClick={onPrevDate}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button type="button" variant="outline" className="h-8 px-2" onClick={onNextDate}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
+      <h3 className="mb-4 text-lg font-semibold text-brand-900">
+        {format(selectedDate, "EEEE, dd/MM/yyyy")}
+      </h3>
 
       {events.length === 0 ? (
         <div className="rounded-xl border border-dashed border-brand-200 bg-brand-50 p-4 text-sm text-brand-800">
@@ -73,6 +89,6 @@ export function DayEventsPanel({ selectedDate, events }: DayEventsPanelProps) {
           })}
         </ul>
       )}
-    </aside>
+    </section>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { format, startOfMonth } from "date-fns";
+import { addDays, format, startOfMonth, subDays } from "date-fns";
 import { MonthCalendar } from "@/components/calendar/month-calendar";
 import { DayEventsPanel } from "@/components/events/day-events-panel";
 import { Badge } from "@/components/ui/badge";
@@ -32,21 +32,28 @@ export function PublicCalendarView({ events }: PublicCalendarViewProps) {
         </h1>
       </div>
 
-      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
-        <p className="text-sm font-semibold text-slate-800">Ghi chú màu ưu tiên</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {PRIORITY_OPTIONS.map((priority) => (
-            <Badge
-              key={priority.value}
-              style={{ backgroundColor: `${priority.color}20`, color: priority.color }}
-            >
-              {priority.label}
-            </Badge>
-          ))}
-        </div>
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+        <span className="font-medium">Ghi chú:</span>
+        {PRIORITY_OPTIONS.map((priority) => (
+          <Badge
+            key={priority.value}
+            style={{ backgroundColor: `${priority.color}20`, color: priority.color }}
+          >
+            {priority.label}
+          </Badge>
+        ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.45fr_1fr]">
+      <div className="mb-6">
+        <DayEventsPanel
+          selectedDate={selectedDate}
+          events={selectedDateEvents}
+          onPrevDate={() => setSelectedDate((current) => subDays(current, 1))}
+          onNextDate={() => setSelectedDate((current) => addDays(current, 1))}
+        />
+      </div>
+
+      <div>
         <MonthCalendar
           month={month}
           selectedDate={selectedDate}
@@ -54,7 +61,6 @@ export function PublicCalendarView({ events }: PublicCalendarViewProps) {
           onSelectedDateChange={setSelectedDate}
           eventsByDate={eventsByDate}
         />
-        <DayEventsPanel selectedDate={selectedDate} events={selectedDateEvents} />
       </div>
     </main>
   );

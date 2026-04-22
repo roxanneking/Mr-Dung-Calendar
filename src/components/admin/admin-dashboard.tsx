@@ -1,14 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { format } from "date-fns";
+import { addDays, format, startOfMonth, subDays } from "date-fns";
 
 import { EventFormModal } from "@/components/admin/event-form-modal";
+import { MonthCalendar } from "@/components/calendar/month-calendar";
+import { DayEventsPanel } from "@/components/events/day-events-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/supabase/client";
 import { PRIORITY_OPTIONS, getPriorityMeta } from "@/features/events/constants";
 import { EventFormInput, EventRecord } from "@/features/events/types";
+import { groupEventsByDate, sortEventsByTime } from "@/features/events/utils";
 import { useToast } from "@/hooks/use-toast";
 import { signOutAdmin } from "@/services/auth.service";
 
@@ -25,6 +28,11 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
   const [modal, setModal] = useState<ModalState>({ open: false, mode: "create" });
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<"overview" | "detail">("overview");
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [month, setMonth] = useState(startOfMonth(new Date()));
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
   const { notify } = useToast();
   const supabase = createClient();
 
@@ -35,6 +43,25 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
         : a.date.localeCompare(b.date)
     );
   }, [events]);
+
+  const eventsByDate = useMemo(() => groupEventsByDate(sortedEvents), [sortedEvents]);
+
+  const selectedDateEvents = useMemo(() => {
+    const key = format(selectedDate, "yyyy-MM-dd");
+    return sortEventsByTime(eventsByDate.get(key) ?? []);
+  }, [eventsByDate, selectedDate]);
+
+  const filteredEvents = useMemo(() => {
+    return sortedEvents.filter((event) => {
+      if (filterFrom && event.date < filterFrom) {
+        return false;
+      }
+      if (filterTo && event.date > filterTo) {
+        return false;
+      }
+      return true;
+    });
+  }, [filterFrom, filterTo, sortedEvents]);
 
   async function refreshEvents() {
     setLoading(true);
@@ -113,24 +140,27 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
       <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-brand-100 bg-white p-5 shadow-soft md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-            Khu vực quản trị
+            Xin chào Mrs Hà
           </p>
           <h1 className="mt-1 text-2xl font-semibold text-brand-950">
-            Quản lý lịch trình sếp
+            Quản Lý Lịch Trình Ông PKD
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Chỉ tài khoản admin mới có quyền thêm, sửa, xóa.
+            Nhấn Copy link để gửi sếp lịch trình
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={refreshEvents} disabled={loading}>
-            {loading ? "Đang tải..." : "Tải lại"}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={viewMode === "overview" ? "primary" : "outline"}
+            onClick={() => setViewMode("overview")}
+          >
+            Tổng quan
           </Button>
           <Button
-            variant="primary"
-            onClick={() => setModal({ open: true, mode: "create" })}
+            variant={viewMode === "detail" ? "primary" : "outline"}
+            onClick={() => setViewMode("detail")}
           >
-            Thêm lịch
+            Chi tiết
           </Button>
           <Button variant="outline" onClick={copyPublicLink}>
             Copy link gửi sếp
@@ -141,9 +171,9 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
         </div>
       </div>
 
-      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
-        <p className="text-sm font-semibold text-slate-800">Ghi chú màu ưu tiên</p>
-        <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+        <span className="font-medium">Ghi chú:</span>
+        <div className="flex flex-wrap gap-2">
           {PRIORITY_OPTIONS.map((priority) => (
             <Badge
               key={priority.value}
@@ -163,56 +193,123 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
         <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50 p-5 text-sm text-brand-900">
           Chưa có lịch trình nào. Nhấn "Thêm lịch" để bắt đầu.
         </div>
+      ) : viewMode === "overview" ? (
+        <>
+          <div className="mb-6">
+            <DayEventsPanel
+              selectedDate={selectedDate}
+              events={selectedDateEvents}
+              onPrevDate={() => setSelectedDate((current) => subDays(current, 1))}
+              onNextDate={() => setSelectedDate((current) => addDays(current, 1))}
+            />
+          </div>
+          <MonthCalendar
+            month={month}
+            selectedDate={selectedDate}
+            onMonthChange={setMonth}
+            onSelectedDateChange={setSelectedDate}
+            eventsByDate={eventsByDate}
+          />
+        </>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-brand-100 bg-white shadow-soft">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-brand-50 text-left text-xs uppercase tracking-wide text-brand-800">
-                <th className="px-4 py-3">Ngày</th>
-                <th className="px-4 py-3">Giờ</th>
-                <th className="px-4 py-3">Nội dung</th>
-                <th className="px-4 py-3">Loại</th>
-                <th className="px-4 py-3 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedEvents.map((event) => (
-                <tr key={event.id} className="border-t border-slate-100 align-top">
-                  <td className="px-4 py-3 text-sm text-slate-700">
-                    {format(new Date(event.date), "dd/MM/yyyy")}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-700">
-                    {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-slate-900">{event.title}</p>
-                    {event.location && (
-                      <p className="mt-1 text-sm text-slate-500">{event.location}</p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge style={{ backgroundColor: `${event.color}20`, color: event.color }}>
-                      {getPriorityMeta(event.category).label}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setModal({ open: true, mode: "edit", event })}
-                      >
-                        Sửa
-                      </Button>
-                      <Button variant="danger" onClick={() => deleteEvent(event)}>
-                        Xóa
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Từ ngày
+              </p>
+              <input
+                type="date"
+                value={filterFrom}
+                onChange={(event) => setFilterFrom(event.target.value)}
+                className="h-10 rounded-xl border border-brand-200 px-3 text-sm"
+              />
+            </div>
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Đến ngày
+              </p>
+              <input
+                type="date"
+                value={filterTo}
+                onChange={(event) => setFilterTo(event.target.value)}
+                className="h-10 rounded-xl border border-brand-200 px-3 text-sm"
+              />
+            </div>
+            <div className="ml-auto flex gap-2">
+              <Button variant="outline" onClick={refreshEvents} disabled={loading}>
+                {loading ? "Đang tải..." : "Làm mới"}
+              </Button>
+              <Button variant="primary" onClick={() => setModal({ open: true, mode: "create" })}>
+                Thêm lịch
+              </Button>
+            </div>
+          </div>
+
+          {filteredEvents.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50 p-5 text-sm text-brand-900">
+              Không có lịch trình trong khoảng thời gian lọc.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-brand-100 bg-white shadow-soft">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-brand-50 text-left text-xs uppercase tracking-wide text-brand-800">
+                    <th className="px-4 py-3">Ngày</th>
+                    <th className="px-4 py-3">Giờ</th>
+                    <th className="px-4 py-3">Nội dung</th>
+                    <th className="px-4 py-3">Loại</th>
+                    <th className="px-4 py-3 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEvents.map((event) => {
+                    const priority = getPriorityMeta(event.category);
+                    return (
+                      <tr key={event.id} className="border-t border-slate-100 align-top">
+                        <td className="px-4 py-3 text-sm text-slate-700">
+                          {format(new Date(event.date), "dd/MM/yyyy")}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-700">
+                          {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-slate-900">{event.title}</p>
+                          {event.location && (
+                            <p className="mt-1 text-sm text-slate-500">{event.location}</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            style={{
+                              backgroundColor: `${priority.color}20`,
+                              color: priority.color
+                            }}
+                          >
+                            {priority.label}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => setModal({ open: true, mode: "edit", event })}
+                            >
+                              Sửa
+                            </Button>
+                            <Button variant="danger" onClick={() => deleteEvent(event)}>
+                              Xóa
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
 
       <EventFormModal
