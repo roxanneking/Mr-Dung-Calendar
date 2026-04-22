@@ -26,8 +26,21 @@ create table if not exists public.events (
   constraint events_time_check check (start_time < end_time)
 );
 
+create table if not exists public.event_attachments (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events(id) on delete cascade,
+  file_name text not null,
+  file_path text not null,
+  file_size bigint not null check (file_size > 0),
+  mime_type text not null,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  unique(event_id, file_name)
+);
+
 create index if not exists idx_events_date on public.events(date);
 create index if not exists idx_events_date_start_time on public.events(date, start_time);
+create index if not exists idx_event_attachments_event_id on public.event_attachments(event_id);
 
 create or replace function public.set_updated_at()
 returns trigger

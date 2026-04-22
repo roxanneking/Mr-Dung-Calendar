@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 
 import {
   PRIORITY_OPTIONS,
   getPriorityMeta
 } from "@/features/events/constants";
+import { EventAttachmentRecord } from "@/features/attachments/types";
 import { EventFormInput, EventRecord } from "@/features/events/types";
 import { getWeekOfMonthLabel } from "@/features/events/utils";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,12 @@ interface EventFormModalProps {
   open: boolean;
   mode: "create" | "edit";
   initialEvent?: EventRecord;
-  onSubmit: (values: EventFormInput) => Promise<void>;
+  initialAttachments: EventAttachmentRecord[];
+  onSubmit: (
+    values: EventFormInput,
+    files: File[],
+    deletedAttachmentIds: string[]
+  ) => Promise<void>;
   onClose: () => void;
   submitting: boolean;
 }
@@ -32,7 +38,7 @@ const EMPTY_FORM: EventFormInput = {
   description: "",
   owner: "",
   deadline: "",
-  status: "",
+  status: "Mới",
   result: "",
   notes: "",
   category: "meeting",
@@ -43,11 +49,15 @@ export function EventFormModal({
   open,
   mode,
   initialEvent,
+  initialAttachments,
   onSubmit,
   onClose,
   submitting
 }: EventFormModalProps) {
   const [form, setForm] = useState<EventFormInput>(EMPTY_FORM);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [attachments, setAttachments] = useState<EventAttachmentRecord[]>([]);
+  const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) {
@@ -69,14 +79,52 @@ export function EventFormModal({
         category: initialEvent.category,
         color: initialEvent.color
       });
+      setAttachments(initialAttachments);
+      setDeletedAttachmentIds([]);
+      setNewFiles([]);
       return;
     }
     setForm(EMPTY_FORM);
-  }, [initialEvent, open]);
+    setAttachments([]);
+    setDeletedAttachmentIds([]);
+    setNewFiles([]);
+  }, [initialAttachments, initialEvent, open]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    await onSubmit(form);
+    await onSubmit(form, newFiles, deletedAttachmentIds);
+  }
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files ?? []);
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "image/png",
+      "image/jpg",
+      "image/jpeg"
+    ];
+
+    const validFiles = selected.filter(
+      (file) => allowedTypes.includes(file.type) && file.size <= 10 * 1024 * 1024
+    );
+    const maxRemaining = Math.max(0, 5 - attachments.length - newFiles.length);
+    const finalFiles = validFiles.slice(0, maxRemaining);
+
+    setNewFiles((prev) => [...prev, ...finalFiles]);
+    event.target.value = "";
+  }
+
+  function removeNewFile(fileName: string) {
+    setNewFiles((prev) => prev.filter((file) => file.name !== fileName));
+  }
+
+  function removeExistingAttachment(attachmentId: string) {
+    setAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
+    setDeletedAttachmentIds((prev) => [...prev, attachmentId]);
   }
 
   return (
@@ -213,11 +261,15 @@ export function EventFormModal({
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Trạng thái
             </label>
-            <Input
+            <select
               value={form.status}
               onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
-              placeholder="Đang thực hiện / Hoàn thành"
-            />
+              className="h-11 w-full rounded-xl border border-brand-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+            >
+              <option value="Mới">Mới</option>
+              <option value="Đang xử lý">Đang xử lý</option>
+              <option value="Hoàn thành">Hoàn thành</option>
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
@@ -240,12 +292,50 @@ export function EventFormModal({
             />
           </div>
           <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-            <p className="font-medium text-slate-700">Ghi chú màu ưu tiên</p>
-            <ul className="mt-2 space-y-1 text-slate-600">
-              <li>- Đỏ: Quan trọng</li>
-              <li>- Vàng: Trung bình</li>
-              <li>- Xanh lá: Thấp</li>
-            </ul>
+            <p className="mb-2 font-medium text-slate-700">Đăng tải tài liệu (tối đa 5 file)</p>
+            <Input
+              type="file"
+              multiple
+              onChange={handleFileChange}
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+            />
+            <p className="mt-2 text-xs text-slate-500">
+              Hỗ trợ: pdf, doc/docx, xls/xlsx, png/jpg/jpeg. Mỗi file tối đa 10MB.
+            </p>
+          </div>
+          <div className="md:col-span-2 rounded-xl border border-slate-200 bg-white p-3 text-sm">
+            <p className="font-medium text-slate-700">Tài liệu đã tải</p>
+            <div className="mt-2 space-y-2">
+              {attachments.map((attachment) => (
+                <div key={attachment.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-2">
+                  <span className="truncate pr-2 text-slate-700">{attachment.file_name}</span>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    className="h-8 px-3 text-xs"
+                    onClick={() => removeExistingAttachment(attachment.id)}
+                  >
+                    Xóa
+                  </Button>
+                </div>
+              ))}
+              {newFiles.map((file) => (
+                <div key={file.name} className="flex items-center justify-between rounded-lg border border-slate-200 p-2">
+                  <span className="truncate pr-2 text-slate-700">{file.name}</span>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    className="h-8 px-3 text-xs"
+                    onClick={() => removeNewFile(file.name)}
+                  >
+                    Bỏ
+                  </Button>
+                </div>
+              ))}
+              {attachments.length === 0 && newFiles.length === 0 && (
+                <p className="text-slate-500">Chưa có tài liệu nào.</p>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">

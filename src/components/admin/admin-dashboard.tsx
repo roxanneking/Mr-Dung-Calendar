@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { addDays, format, startOfMonth, subDays } from "date-fns";
 
 import { EventFormModal } from "@/components/admin/event-form-modal";
+import { EventAttachmentRecord } from "@/features/attachments/types";
 import { MonthCalendar } from "@/components/calendar/month-calendar";
 import { DayEventsPanel } from "@/components/events/day-events-panel";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,9 @@ type ModalState =
 
 export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
   const [events, setEvents] = useState<EventRecord[]>(initialEvents);
+  const [attachmentsByEvent, setAttachmentsByEvent] = useState<
+    Map<string, EventAttachmentRecord[]>
+  >(new Map());
   const [modal, setModal] = useState<ModalState>({ open: false, mode: "create" });
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -37,6 +41,8 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [month, setMonth] = useState(startOfMonth(new Date()));
   const [detailMonth, setDetailMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const { notify } = useToast();
   const supabase = createClient();
 
@@ -62,7 +68,27 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
     return sortedEvents.filter((event) => event.date.startsWith(detailMonth));
   }, [detailMonth, sortedEvents]);
 
-  const weekEvents = useMemo(() => groupEventsByWeek(monthEvents), [monthEvents]);
+  const filteredDetailEvents = useMemo(() => {
+    return monthEvents.filter((event) => {
+      if (fromDate && event.date < fromDate) {
+        return false;
+      }
+      if (toDate && event.date > toDate) {
+        return false;
+      }
+      return true;
+    });
+  }, [fromDate, monthEvents, toDate]);
+
+  const weekEvents = useMemo(
+    () => groupEventsByWeek(filteredDetailEvents),
+    [filteredDetailEvents]
+  );
+
+  useEffect(() => {
+    void refreshEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function refreshEvents() {
     setLoading(true);
@@ -77,10 +103,109 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
       notify(`Không thể tải lại lịch: ${error.message}`, "error");
       return;
     }
-    setEvents((data as EventRecord[]) ?? []);
+    const nextEvents = (data as EventRecord[]) ?? [];
+    setEvents(nextEvents);
+
+    if (nextEvents.length === 0) {
+      setAttachmentsByEvent(new Map());
+      setLoading(false);
+      return;
+    }
+
+    const eventIds = nextEvents.map((event) => event.id);
+    const { data: attachments, error: attachmentError } = await supabase
+      .from("event_attachments")
+      .select("*")
+      .in("event_id", eventIds)
+      .order("created_at", { ascending: true });
+
+    if (attachmentError) {
+      notify(`Không thể tải danh sách tài liệu: ${attachmentError.message}`, "error");
+      setLoading(false);
+      return;
+    }
+
+    const grouped = new Map<string, EventAttachmentRecord[]>();
+    (attachments as EventAttachmentRecord[]).forEach((attachment) => {
+      const bucket = grouped.get(attachment.event_id) ?? [];
+      bucket.push(attachment);
+      grouped.set(attachment.event_id, bucket);
+    });
+    setAttachmentsByEvent(grouped);
+    setLoading(false);
   }
 
-  async function saveEvent(values: EventFormInput) {
+  async function uploadAttachments(eventId: string, files: File[]) {
+    if (files.length === 0) {
+      return;
+    }
+
+    for (const file of files) {
+      const path = `${eventId}/${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("event-documents")
+        .upload(path, file, { upsert: true });
+
+      if (uploadError) {
+        throw new Error(uploadError.message);
+      }
+
+      const { error: insertError } = await supabase.from("event_attachments").upsert(
+        {
+          event_id: eventId,
+          file_name: file.name,
+          file_path: path,
+          file_size: file.size,
+          mime_type: file.type
+        },
+        { onConflict: "event_id,file_name" }
+      );
+
+      if (insertError) {
+        throw new Error(insertError.message);
+      }
+    }
+  }
+
+  async function removeAttachments(attachmentIds: string[]) {
+    if (attachmentIds.length === 0) {
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("event_attachments")
+      .select("id,file_path")
+      .in("id", attachmentIds);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const paths = (data ?? []).map((item) => item.file_path);
+    if (paths.length > 0) {
+      const { error: storageError } = await supabase.storage
+        .from("event-documents")
+        .remove(paths);
+      if (storageError) {
+        throw new Error(storageError.message);
+      }
+    }
+
+    const { error: deleteError } = await supabase
+      .from("event_attachments")
+      .delete()
+      .in("id", attachmentIds);
+
+    if (deleteError) {
+      throw new Error(deleteError.message);
+    }
+  }
+
+  async function saveEvent(
+    values: EventFormInput,
+    files: File[],
+    deletedAttachmentIds: string[]
+  ) {
     setSubmitting(true);
     const payload = {
       ...values,
@@ -97,13 +222,18 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
 
     const query =
       modal.mode === "create"
-        ? supabase.from("events").insert(payload)
-        : supabase.from("events").update(payload).eq("id", modal.event?.id ?? "");
+        ? supabase.from("events").insert(payload).select("*").single()
+        : supabase
+            .from("events")
+            .update(payload)
+            .eq("id", modal.event?.id ?? "")
+            .select("*")
+            .single();
 
-    const { error } = await query;
-    setSubmitting(false);
+    const { data, error } = await query;
 
     if (error) {
+      setSubmitting(false);
       if (error.message.includes("row-level security")) {
         notify(
           "Bạn chưa được map vào bảng admin_users nên chưa có quyền thêm/sửa/xóa.",
@@ -115,6 +245,19 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
       return;
     }
 
+    const eventId = (data as EventRecord).id;
+    try {
+      await removeAttachments(deletedAttachmentIds);
+      await uploadAttachments(eventId, files);
+    } catch (attachmentError) {
+      const message =
+        attachmentError instanceof Error ? attachmentError.message : "Lỗi tải tài liệu";
+      setSubmitting(false);
+      notify(`Lưu lịch thất bại: ${message}`, "error");
+      return;
+    }
+
+    setSubmitting(false);
     notify(
       modal.mode === "create" ? "Đã thêm lịch thành công." : "Đã cập nhật lịch thành công.",
       "success"
@@ -146,6 +289,31 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
   async function copyPublicLink() {
     await navigator.clipboard.writeText(`${window.location.origin}/boss`);
     notify("Đã copy link gửi sếp.", "success");
+  }
+
+  async function exportToExcel() {
+    if (filteredDetailEvents.length === 0) {
+      notify("Không có dữ liệu để xuất.", "info");
+      return;
+    }
+
+    const XLSX = await import("xlsx");
+    const rows = filteredDetailEvents.map((event) => ({
+      Tuan: getWeekOfMonthLabel(event.date),
+      ThoiGian: `${format(new Date(event.date), "dd/MM/yyyy")} ${event.start_time.slice(0, 5)}-${event.end_time.slice(0, 5)}`,
+      NoiDungCongViec: event.title,
+      ChiTietCongViec: event.description ?? "",
+      NguoiPhuTrach: event.owner ?? "",
+      Deadline: event.deadline ? format(new Date(event.deadline), "dd/MM/yyyy") : "",
+      DiaDiem: event.location ?? "",
+      TrangThai: event.status ?? "",
+      KetQua: event.result ?? "",
+      GhiChu: event.notes ?? ""
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "LichChiTiet");
+    XLSX.writeFile(workbook, `lich-chi-tiet-${format(new Date(), "yyyyMMdd-HHmm")}.xlsx`);
   }
 
   return (
@@ -238,9 +406,34 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
                 className="h-10 w-full rounded-xl border border-brand-200 px-3 text-sm md:w-auto"
               />
             </div>
+            <div className="w-full md:w-auto">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Từ ngày
+              </p>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(event) => setFromDate(event.target.value)}
+                className="h-10 w-full rounded-xl border border-brand-200 px-3 text-sm md:w-auto"
+              />
+            </div>
+            <div className="w-full md:w-auto">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Đến ngày
+              </p>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(event) => setToDate(event.target.value)}
+                className="h-10 w-full rounded-xl border border-brand-200 px-3 text-sm md:w-auto"
+              />
+            </div>
             <div className="flex w-full gap-2 md:ml-auto md:w-auto">
               <Button className="flex-1 md:flex-none" variant="outline" onClick={refreshEvents} disabled={loading}>
                 {loading ? "Đang tải..." : "Làm mới"}
+              </Button>
+              <Button className="flex-1 md:flex-none" variant="outline" onClick={exportToExcel}>
+                Xuất Excel
               </Button>
               <Button className="flex-1 md:flex-none" variant="primary" onClick={() => setModal({ open: true, mode: "create" })}>
                 Thêm lịch
@@ -248,7 +441,7 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
             </div>
           </div>
 
-          {monthEvents.length === 0 ? (
+          {filteredDetailEvents.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50 p-5 text-sm text-brand-900">
               Không có lịch trình trong tháng đã chọn.
             </div>
@@ -311,14 +504,13 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
                       <th className="px-4 py-3">Trạng thái</th>
                       <th className="px-4 py-3">Kết quả</th>
                       <th className="px-4 py-3">Ghi chú</th>
-                      <th className="px-4 py-3">Mức độ</th>
+                      <th className="px-4 py-3">Tài liệu</th>
                       <th className="px-4 py-3 text-right">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
                     {["W1", "W2", "W3", "W4", "W5"].map((week) =>
                       (weekEvents.get(week) ?? []).map((event) => {
-                        const priority = getPriorityMeta(event.category);
                         return (
                           <tr key={event.id} className="border-t border-slate-100 align-top">
                             <td className="px-4 py-3 text-sm text-slate-700">{week}</td>
@@ -336,14 +528,9 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
                             <td className="px-4 py-3 text-sm text-slate-700">{event.result ?? ""}</td>
                             <td className="px-4 py-3 text-sm text-slate-700">{event.notes ?? ""}</td>
                             <td className="px-4 py-3">
-                              <Badge
-                                style={{
-                                  backgroundColor: `${priority.color}20`,
-                                  color: priority.color
-                                }}
-                              >
-                                {priority.label}
-                              </Badge>
+                              <span className="text-sm text-slate-700">
+                                {(attachmentsByEvent.get(event.id) ?? []).length} file
+                              </span>
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex justify-end gap-2">
@@ -374,6 +561,9 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
         open={modal.open}
         mode={modal.mode}
         initialEvent={modal.event}
+        initialAttachments={
+          modal.event ? attachmentsByEvent.get(modal.event.id) ?? [] : []
+        }
         onSubmit={saveEvent}
         onClose={() => setModal({ open: false, mode: "create" })}
         submitting={submitting}
