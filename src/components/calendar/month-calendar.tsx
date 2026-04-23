@@ -12,6 +12,7 @@ import {
   startOfWeek,
   subMonths
 } from "date-fns";
+import { vi } from "date-fns/locale";
 
 import { getPriorityMeta } from "@/features/events/constants";
 import { EventRecord } from "@/features/events/types";
@@ -38,12 +39,14 @@ export function MonthCalendar({
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  const monthLabel = format(month, "MMMM yyyy", { locale: vi });
+  const formattedMonthLabel = `${monthLabel.charAt(0).toUpperCase()}${monthLabel.slice(1)}`;
 
   return (
     <section className="rounded-2xl border border-brand-100 bg-white p-5 shadow-soft">
       <header className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-semibold text-brand-900">
-          {format(month, "MMMM yyyy")}
+          {formattedMonthLabel}
         </h2>
         <div className="flex gap-2">
           <button
@@ -66,7 +69,7 @@ export function MonthCalendar({
       <div className="overflow-x-auto">
         <div className="min-w-[720px]">
           <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase text-slate-500">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+            {["Th 2", "Th 3", "Th 4", "Th 5", "Th 6", "Th 7", "CN"].map((day) => (
               <div key={day}>{day}</div>
             ))}
           </div>
@@ -103,7 +106,7 @@ export function MonthCalendar({
                     </span>
                     {isToday && (
                       <span className="rounded-full bg-brand-700 px-2 py-0.5 text-[10px] font-medium text-white">
-                        Today
+                        Hôm nay
                       </span>
                     )}
                   </div>
