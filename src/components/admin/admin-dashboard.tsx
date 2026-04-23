@@ -19,7 +19,6 @@ import {
   sortEventsByTime
 } from "@/features/events/utils";
 import { useToast } from "@/hooks/use-toast";
-import { signOutAdmin } from "@/services/auth.service";
 
 interface AdminDashboardProps {
   initialEvents: EventRecord[];
@@ -281,11 +280,6 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
     await refreshEvents();
   }
 
-  async function handleSignOut() {
-    await signOutAdmin();
-    window.location.href = "/admin/login";
-  }
-
   async function copyPublicLink() {
     await navigator.clipboard.writeText(`${window.location.origin}/boss`);
     notify("Đã copy link gửi sếp.", "success");
@@ -327,7 +321,23 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
             Quản Lý Lịch Trình Ông PKD
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Nhấn Copy link để gửi sếp lịch trình
+            Sao chép liên kết để gửi sếp theo dõi lịch trình:{" "}
+            <button
+              type="button"
+              onClick={copyPublicLink}
+              className="font-semibold text-brand-700 underline hover:text-brand-900"
+            >
+              Sao chép liên kết
+            </button>
+            {" | "}
+            <a
+              href="/boss"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-brand-700 underline hover:text-brand-900"
+            >
+              Mở link trực tiếp
+            </a>
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -343,12 +353,6 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
           >
             Chi tiết
           </Button>
-          <Button variant="outline" onClick={copyPublicLink}>
-            Copy link gửi sếp
-          </Button>
-          <Button variant="ghost" onClick={handleSignOut}>
-            Đăng xuất
-          </Button>
         </div>
       </div>
 
@@ -358,7 +362,7 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
           {PRIORITY_OPTIONS.map((priority) => (
             <Badge
               key={priority.value}
-              style={{ backgroundColor: `${priority.color}20`, color: priority.color }}
+              style={{ backgroundColor: priority.color, color: "#ffffff" }}
             >
               {priority.label}
             </Badge>
@@ -380,8 +384,12 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
             <DayEventsPanel
               selectedDate={selectedDate}
               events={selectedDateEvents}
+              attachmentsByEvent={attachmentsByEvent}
+              mode="admin"
               onPrevDate={() => setSelectedDate((current) => subDays(current, 1))}
               onNextDate={() => setSelectedDate((current) => addDays(current, 1))}
+              onEditEvent={(event) => setModal({ open: true, mode: "edit", event })}
+              onDeleteEvent={deleteEvent}
             />
           </div>
           <MonthCalendar
