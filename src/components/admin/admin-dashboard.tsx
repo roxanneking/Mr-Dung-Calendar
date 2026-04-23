@@ -318,7 +318,7 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
             Xin chào Mrs Hà
           </p>
           <h1 className="mt-1 text-2xl font-semibold text-brand-950">
-            Quản Lý Lịch Trình Ông PKD
+            Quản Lý Lịch Trình Mr PKD
           </h1>
           <p className="mt-1 text-sm text-slate-600">
             Gửi sếp theo dõi lịch trình:{" "}
@@ -329,6 +329,15 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
             >
               Sao chép liên kết
             </button>
+            {" | "}
+            <a
+              href="/boss"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-brand-700 underline hover:text-brand-900"
+            >
+              Mở link trực tiếp
+            </a>
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
