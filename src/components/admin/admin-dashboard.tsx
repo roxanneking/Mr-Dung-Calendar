@@ -2,42 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { addDays, format, startOfMonth, subDays } from "date-fns";
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  CheckSquare,
-  RefreshCcw,
-  Square
-} from "lucide-react";
 
 import { EventFormModal } from "@/components/admin/event-form-modal";
 import { EventAttachmentRecord } from "@/features/attachments/types";
 import { MonthCalendar } from "@/components/calendar/month-calendar";
 import { DayEventsPanel } from "@/components/events/day-events-panel";
-import { Modal } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
 import { createClient } from "@/supabase/client";
-import { PRIORITY_OPTIONS } from "@/features/events/constants";
+import { PRIORITY_OPTIONS, getPriorityMeta } from "@/features/events/constants";
 import { EventFormInput, EventRecord } from "@/features/events/types";
-import { groupEventsByDate, sortEventsByTime } from "@/features/events/utils";
+import {
+  getWeekOfMonthLabel,
+  groupEventsByDate,
+  groupEventsByWeek,
+  sortEventsByTime
+} from "@/features/events/utils";
 import { useToast } from "@/hooks/use-toast";
 import { signOutAdmin } from "@/services/auth.service";
 
@@ -48,9 +28,6 @@ interface AdminDashboardProps {
 type ModalState =
   | { open: false; mode: "create" | "edit"; event?: undefined }
   | { open: true; mode: "create" | "edit"; event?: EventRecord };
-
-type SortKey = "time" | "title" | "owner" | "deadline" | "status";
-type SortDirection = "asc" | "desc";
 
 export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
   const [events, setEvents] = useState<EventRecord[]>(initialEvents);
@@ -66,12 +43,6 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
   const [detailMonth, setDetailMonth] = useState(format(new Date(), "yyyy-MM"));
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [detailEvent, setDetailEvent] = useState<EventRecord | null>(null);
-  const [sortKey, setSortKey] = useState<SortKey>("time");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [selectMode, setSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
   const { notify } = useToast();
   const supabase = createClient();
 
@@ -109,32 +80,10 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
     });
   }, [fromDate, monthEvents, toDate]);
 
-  const detailEvents = useMemo(() => {
-    const list = [...filteredDetailEvents];
-    list.sort((a, b) => {
-      const direction = sortDirection === "asc" ? 1 : -1;
-      switch (sortKey) {
-        case "title":
-          return a.title.localeCompare(b.title) * direction;
-        case "owner":
-          return (a.owner ?? "").localeCompare(b.owner ?? "") * direction;
-        case "deadline":
-          return (a.deadline ?? "9999-12-31").localeCompare(b.deadline ?? "9999-12-31") * direction;
-        case "status":
-          return (a.status ?? "").localeCompare(b.status ?? "") * direction;
-        case "time":
-        default: {
-          const left = `${a.date} ${a.start_time}`;
-          const right = `${b.date} ${b.start_time}`;
-          return left.localeCompare(right) * direction;
-        }
-      }
-    });
-    return list;
-  }, [filteredDetailEvents, sortDirection, sortKey]);
-
-  const isAllSelected =
-    detailEvents.length > 0 && detailEvents.every((event) => selectedIds.has(event.id));
+  const weekEvents = useMemo(
+    () => groupEventsByWeek(filteredDetailEvents),
+    [filteredDetailEvents]
+  );
 
   useEffect(() => {
     void refreshEvents();
@@ -148,13 +97,12 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
       .select("*")
       .order("date", { ascending: true })
       .order("start_time", { ascending: true });
+    setLoading(false);
 
     if (error) {
-      setLoading(false);
       notify(`Không thể tải lại lịch: ${error.message}`, "error");
       return;
     }
-
     const nextEvents = (data as EventRecord[]) ?? [];
     setEvents(nextEvents);
 
@@ -172,8 +120,8 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
       .order("created_at", { ascending: true });
 
     if (attachmentError) {
-      setLoading(false);
       notify(`Không thể tải danh sách tài liệu: ${attachmentError.message}`, "error");
+      setLoading(false);
       return;
     }
 
@@ -183,7 +131,6 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
       bucket.push(attachment);
       grouped.set(attachment.event_id, bucket);
     });
-
     setAttachmentsByEvent(grouped);
     setLoading(false);
   }
@@ -319,12 +266,10 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
     await refreshEvents();
   }
 
-  async function deleteEvent(event: EventRecord, skipConfirm = false) {
-    if (!skipConfirm) {
-      const ok = window.confirm(`Xóa lịch "${event.title}"?`);
-      if (!ok) {
-        return;
-      }
+  async function deleteEvent(event: EventRecord) {
+    const ok = window.confirm(`Xóa lịch "${event.title}"?`);
+    if (!ok) {
+      return;
     }
 
     const { error } = await supabase.from("events").delete().eq("id", event.id);
@@ -332,38 +277,7 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
       notify(`Xóa lịch thất bại: ${error.message}`, "error");
       return;
     }
-
     notify("Đã xóa lịch.", "success");
-    setDetailEvent(null);
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(event.id);
-      return next;
-    });
-    await refreshEvents();
-  }
-
-  async function deleteSelectedEvents() {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) {
-      notify("Bạn chưa chọn lịch trình nào.", "info");
-      return;
-    }
-
-    const ok = window.confirm(`Xóa ${ids.length} lịch trình đã chọn?`);
-    if (!ok) {
-      return;
-    }
-
-    const { error } = await supabase.from("events").delete().in("id", ids);
-    if (error) {
-      notify(`Xóa lịch thất bại: ${error.message}`, "error");
-      return;
-    }
-
-    notify(`Đã xóa ${ids.length} lịch trình.`, "success");
-    setSelectedIds(new Set());
-    setSelectMode(false);
     await refreshEvents();
   }
 
@@ -374,132 +288,69 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
 
   async function copyPublicLink() {
     await navigator.clipboard.writeText(`${window.location.origin}/boss`);
-    notify("Đã sao chép liên kết gửi sếp.", "success");
+    notify("Đã copy link gửi sếp.", "success");
   }
 
-  async function exportEventsToExcel(items: EventRecord[], suffix: string) {
-    if (items.length === 0) {
+  async function exportToExcel() {
+    if (filteredDetailEvents.length === 0) {
       notify("Không có dữ liệu để xuất.", "info");
       return;
     }
 
     const XLSX = await import("xlsx");
-    const rows = items.map((event) => ({
+    const rows = filteredDetailEvents.map((event) => ({
+      Tuan: getWeekOfMonthLabel(event.date),
       ThoiGian: `${format(new Date(event.date), "dd/MM/yyyy")} ${event.start_time.slice(0, 5)}-${event.end_time.slice(0, 5)}`,
       NoiDungCongViec: event.title,
       ChiTietCongViec: event.description ?? "",
-      NhanSu: event.owner ?? "",
+      NguoiPhuTrach: event.owner ?? "",
       Deadline: event.deadline ? format(new Date(event.deadline), "dd/MM/yyyy") : "",
       DiaDiem: event.location ?? "",
       TrangThai: event.status ?? "",
       KetQua: event.result ?? "",
       GhiChu: event.notes ?? ""
     }));
-
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "LichChiTiet");
-    XLSX.writeFile(workbook, `lich-chi-tiet-${suffix}-${format(new Date(), "yyyyMMdd-HHmm")}.xlsx`);
-  }
-
-  async function exportFilteredEvents() {
-    await exportEventsToExcel(detailEvents, "da-loc");
-  }
-
-  async function exportSelectedEvents() {
-    const selected = detailEvents.filter((event) => selectedIds.has(event.id));
-    if (selected.length === 0) {
-      notify("Bạn chưa chọn lịch trình nào để xuất.", "info");
-      return;
-    }
-    await exportEventsToExcel(selected, "da-chon");
-  }
-
-  function toggleSort(nextKey: SortKey) {
-    if (sortKey === nextKey) {
-      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
-      return;
-    }
-    setSortKey(nextKey);
-    setSortDirection("asc");
-  }
-
-  function renderSortIcon(key: SortKey) {
-    if (sortKey !== key) {
-      return <ArrowUpDown className="h-3.5 w-3.5" />;
-    }
-    return sortDirection === "asc" ? (
-      <ArrowUp className="h-3.5 w-3.5" />
-    ) : (
-      <ArrowDown className="h-3.5 w-3.5" />
-    );
-  }
-
-  function toggleSelectMode() {
-    if (selectMode) {
-      setSelectMode(false);
-      setSelectedIds(new Set());
-      return;
-    }
-    setSelectMode(true);
-  }
-
-  function toggleSelectOne(eventId: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(eventId)) {
-        next.delete(eventId);
-      } else {
-        next.add(eventId);
-      }
-      return next;
-    });
-  }
-
-  function toggleSelectAll() {
-    if (isAllSelected) {
-      setSelectedIds(new Set());
-      return;
-    }
-    setSelectedIds(new Set(detailEvents.map((event) => event.id)));
-  }
-
-  function openEditModal(event: EventRecord) {
-    setDetailEvent(null);
-    setModal({ open: true, mode: "edit", event });
+    XLSX.writeFile(workbook, `lich-chi-tiet-${format(new Date(), "yyyyMMdd-HHmm")}.xlsx`);
   }
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-8">
-      <Card className="mb-6 rounded-2xl border border-brand-100 bg-white py-0 shadow-soft ring-0">
-        <CardHeader className="px-5 pt-5 pb-3">
-          <CardTitle className="text-2xl font-semibold text-brand-950">
-            Quản lý lịch trình ông PKD
-          </CardTitle>
-          <CardDescription className="text-sm text-slate-600">
-            Sao chép liên kết để gửi sếp theo dõi lịch trình.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-5 pb-5">
-          <div className="flex flex-wrap gap-2">
-            <Tabs
-              value={viewMode}
-              onValueChange={(value) => setViewMode(value as "overview" | "detail")}
-            >
-              <TabsList>
-                <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-                <TabsTrigger value="detail">Chi tiết</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Button variant="outline" onClick={copyPublicLink}>
-              Sao chép liên kết gửi sếp
-            </Button>
-            <Button variant="ghost" onClick={handleSignOut}>
-              Đăng xuất
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-brand-100 bg-white p-5 shadow-soft md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+            Xin chào Mrs Hà
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold text-brand-950">
+            Quản Lý Lịch Trình Ông PKD
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Nhấn Copy link để gửi sếp lịch trình
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={viewMode === "overview" ? "primary" : "outline"}
+            onClick={() => setViewMode("overview")}
+          >
+            Tổng quan
+          </Button>
+          <Button
+            variant={viewMode === "detail" ? "primary" : "outline"}
+            onClick={() => setViewMode("detail")}
+          >
+            Chi tiết
+          </Button>
+          <Button variant="outline" onClick={copyPublicLink}>
+            Copy link gửi sếp
+          </Button>
+          <Button variant="ghost" onClick={handleSignOut}>
+            Đăng xuất
+          </Button>
+        </div>
+      </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-slate-600">
         <span className="font-medium">Ghi chú:</span>
@@ -507,7 +358,7 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
           {PRIORITY_OPTIONS.map((priority) => (
             <Badge
               key={priority.value}
-              style={{ backgroundColor: priority.color, color: "#ffffff" }}
+              style={{ backgroundColor: `${priority.color}20`, color: priority.color }}
             >
               {priority.label}
             </Badge>
@@ -521,7 +372,7 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
         </div>
       ) : sortedEvents.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50 p-5 text-sm text-brand-900">
-          Chưa có lịch trình nào. Nhấn "Thêm lịch" để bắt đầu.
+          Chưa có lịch trình nào. Nhấn &quot;Thêm lịch&quot; để bắt đầu.
         </div>
       ) : viewMode === "overview" ? (
         <>
@@ -531,10 +382,6 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
               events={selectedDateEvents}
               onPrevDate={() => setSelectedDate((current) => subDays(current, 1))}
               onNextDate={() => setSelectedDate((current) => addDays(current, 1))}
-              mode="admin"
-              onEditEvent={openEditModal}
-              onDeleteEvent={(event) => void deleteEvent(event)}
-              attachmentsByEvent={attachmentsByEvent}
             />
           </div>
           <MonthCalendar
@@ -547,16 +394,7 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
         </>
       ) : (
         <>
-          <div className="mb-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 md:flex-row md:items-end md:gap-2">
-            <button
-              type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-brand-200 text-brand-900 hover:bg-brand-50"
-              onClick={() => void refreshEvents()}
-              aria-label="Làm mới dữ liệu"
-              title="Làm mới"
-            >
-              <RefreshCcw className="h-4 w-4" />
-            </button>
+          <div className="mb-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 md:flex-row md:items-end">
             <div className="w-full md:w-auto">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Tháng xem chi tiết
@@ -590,180 +428,129 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
                 className="h-10 w-full rounded-xl border border-brand-200 px-3 text-sm md:w-auto"
               />
             </div>
-            <div className="flex w-full flex-wrap gap-2 md:ml-auto md:w-auto">
-              <Button className="flex-1 md:flex-none" variant="outline" onClick={toggleSelectMode}>
-                {selectMode ? "Hủy chọn" : "Chọn"}
+            <div className="flex w-full gap-2 md:ml-auto md:w-auto">
+              <Button className="flex-1 md:flex-none" variant="outline" onClick={refreshEvents} disabled={loading}>
+                {loading ? "Đang tải..." : "Làm mới"}
               </Button>
-              <Button className="flex-1 md:flex-none" variant="outline" onClick={() => void exportFilteredEvents()}>
+              <Button className="flex-1 md:flex-none" variant="outline" onClick={exportToExcel}>
                 Xuất Excel
               </Button>
-              <Button
-                className="flex-1 md:flex-none"
-                variant="primary"
-                onClick={() => setModal({ open: true, mode: "create" })}
-              >
+              <Button className="flex-1 md:flex-none" variant="primary" onClick={() => setModal({ open: true, mode: "create" })}>
                 Thêm lịch
               </Button>
             </div>
           </div>
 
-          {selectMode && (
-            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-brand-200 bg-brand-50 p-3">
-              <span className="text-sm font-semibold text-brand-900">
-                Đã chọn {selectedIds.size} lịch trình
-              </span>
-              <Button type="button" variant="outline" className="h-9" onClick={toggleSelectAll}>
-                {isAllSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-              </Button>
-              <Button type="button" variant="outline" className="h-9" onClick={() => void exportSelectedEvents()}>
-                Xuất Excel đã chọn
-              </Button>
-              <Button type="button" variant="danger" className="h-9" onClick={() => void deleteSelectedEvents()}>
-                Xóa đã chọn
-              </Button>
-            </div>
-          )}
-
-          {detailEvents.length === 0 ? (
+          {filteredDetailEvents.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50 p-5 text-sm text-brand-900">
-              Không có lịch trình trong phạm vi đã lọc.
+              Không có lịch trình trong tháng đã chọn.
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="space-y-2 md:hidden">
-                {detailEvents.map((event) => {
-                  const files = attachmentsByEvent.get(event.id) ?? [];
-                  return (
-                    <div key={event.id} className="rounded-xl border border-brand-100 bg-white p-3">
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-slate-900">{event.title}</p>
-                          <p className="text-xs text-slate-600">
-                            {format(new Date(event.date), "dd/MM/yyyy")} | {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
-                          </p>
-                        </div>
-                        {selectMode && (
-                          <button
-                            type="button"
-                            className="text-brand-900"
-                            onClick={() => toggleSelectOne(event.id)}
-                            aria-label="Chọn lịch trình"
-                          >
-                            {selectedIds.has(event.id) ? (
-                              <CheckSquare className="h-5 w-5" />
-                            ) : (
-                              <Square className="h-5 w-5" />
-                            )}
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-sm text-slate-700">Nhân sự: {event.owner || "Không có"}</p>
-                      <p className="text-sm text-slate-700">Trạng thái: {event.status || "Không có"}</p>
-                      <p className="text-sm text-slate-700">Tài liệu: {files.length} tệp</p>
-                      <div className="mt-2 flex justify-end gap-2">
-                        <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => openEditModal(event)}>
-                          Sửa
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="h-8 px-3 text-xs"
-                          onClick={() => setDetailEvent(event)}
-                        >
-                          Chi tiết
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="hidden overflow-hidden rounded-2xl border border-brand-100 bg-white shadow-soft md:block">
-                <Table className="min-w-[1250px]">
-                  <TableHeader>
-                    <TableRow className="bg-brand-50 text-left text-xs uppercase tracking-wide text-brand-800 hover:bg-brand-50">
-                      {selectMode && <TableHead className="px-3 py-3" />}
-                      <TableHead className="px-4 py-3">
-                        <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort("time")}>
-                          Giờ
-                          {renderSortIcon("time")}
-                        </button>
-                      </TableHead>
-                      <TableHead className="px-4 py-3">
-                        <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort("title")}>
-                          Nội dung công việc
-                          {renderSortIcon("title")}
-                        </button>
-                      </TableHead>
-                      <TableHead className="px-4 py-3">Chi tiết công việc</TableHead>
-                      <TableHead className="px-4 py-3">
-                        <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort("owner")}>
-                          Nhân sự
-                          {renderSortIcon("owner")}
-                        </button>
-                      </TableHead>
-                      <TableHead className="px-4 py-3">
-                        <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort("deadline")}>
-                          Deadline
-                          {renderSortIcon("deadline")}
-                        </button>
-                      </TableHead>
-                      <TableHead className="px-4 py-3">Địa điểm</TableHead>
-                      <TableHead className="px-4 py-3">
-                        <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort("status")}>
-                          Trạng thái
-                          {renderSortIcon("status")}
-                        </button>
-                      </TableHead>
-                      <TableHead className="px-4 py-3">Kết quả</TableHead>
-                      <TableHead className="px-4 py-3">Ghi chú</TableHead>
-                      <TableHead className="px-4 py-3">Tài liệu</TableHead>
-                      <TableHead className="sticky right-0 bg-brand-50 px-4 py-3 text-right">Thao tác</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {detailEvents.map((event) => {
-                      const files = attachmentsByEvent.get(event.id) ?? [];
-                      return (
-                        <TableRow key={event.id} className="border-t border-slate-100 align-top">
-                          {selectMode && (
-                            <TableCell className="px-3 py-3">
-                              <input
-                                type="checkbox"
-                                checked={selectedIds.has(event.id)}
-                                onChange={() => toggleSelectOne(event.id)}
-                                className="h-4 w-4"
-                              />
-                            </TableCell>
-                          )}
-                          <TableCell className="px-4 py-3 text-sm text-slate-700">
-                            {format(new Date(event.date), "dd/MM/yyyy")} | {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-sm text-slate-900">{event.title}</TableCell>
-                          <TableCell className="px-4 py-3 text-sm text-slate-700">{event.description ?? ""}</TableCell>
-                          <TableCell className="px-4 py-3 text-sm text-slate-700">{event.owner ?? ""}</TableCell>
-                          <TableCell className="px-4 py-3 text-sm text-slate-700">
-                            {event.deadline ? format(new Date(event.deadline), "dd/MM/yyyy") : ""}
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-sm text-slate-700">{event.location ?? ""}</TableCell>
-                          <TableCell className="px-4 py-3 text-sm text-slate-700">{event.status ?? ""}</TableCell>
-                          <TableCell className="px-4 py-3 text-sm text-slate-700">{event.result ?? ""}</TableCell>
-                          <TableCell className="px-4 py-3 text-sm text-slate-700">{event.notes ?? ""}</TableCell>
-                          <TableCell className="px-4 py-3 text-sm text-slate-700">{files.length} tệp</TableCell>
-                          <TableCell className="sticky right-0 bg-white px-4 py-3">
-                            <div className="flex justify-end gap-2">
-                              <Button variant="outline" onClick={() => openEditModal(event)}>
+              <div className="space-y-3 md:hidden">
+                {["W1", "W2", "W3", "W4", "W5"].map((week) => (
+                  <div key={week} className="rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="mb-2 text-sm font-semibold text-brand-900">{week}</p>
+                    <div className="space-y-2">
+                      {(weekEvents.get(week) ?? []).map((event) => {
+                        const priority = getPriorityMeta(event.category);
+                        return (
+                          <div key={event.id} className="rounded-lg border border-brand-100 bg-white p-3">
+                            <div className="mb-1 flex items-start justify-between gap-2">
+                              <p className="font-semibold text-slate-900">{event.title}</p>
+                              <Badge
+                                style={{
+                                  backgroundColor: `${priority.color}20`,
+                                  color: priority.color
+                                }}
+                              >
+                                {priority.label}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-slate-600">
+                              {format(new Date(event.date), "dd/MM/yyyy")} | {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
+                            </p>
+                            <div className="mt-2 flex gap-2">
+                              <Button
+                                className="flex-1"
+                                variant="outline"
+                                onClick={() => setModal({ open: true, mode: "edit", event })}
+                              >
                                 Sửa
                               </Button>
-                              <Button variant="ghost" onClick={() => setDetailEvent(event)}>
-                                Chi tiết
+                              <Button className="flex-1" variant="danger" onClick={() => deleteEvent(event)}>
+                                Xóa
                               </Button>
                             </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden overflow-x-auto rounded-2xl border border-brand-100 bg-white shadow-soft md:block">
+                <table className="w-full min-w-[1350px] border-collapse">
+                  <thead>
+                    <tr className="bg-brand-50 text-left text-xs uppercase tracking-wide text-brand-800">
+                      <th className="px-4 py-3">Tuần</th>
+                      <th className="px-4 py-3">Giờ</th>
+                      <th className="px-4 py-3">Nội dung công việc</th>
+                      <th className="px-4 py-3">Chi tiết công việc</th>
+                      <th className="px-4 py-3">Người phụ trách</th>
+                      <th className="px-4 py-3">Deadline</th>
+                      <th className="px-4 py-3">Địa điểm</th>
+                      <th className="px-4 py-3">Trạng thái</th>
+                      <th className="px-4 py-3">Kết quả</th>
+                      <th className="px-4 py-3">Ghi chú</th>
+                      <th className="px-4 py-3">Tài liệu</th>
+                      <th className="px-4 py-3 text-right">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {["W1", "W2", "W3", "W4", "W5"].map((week) =>
+                      (weekEvents.get(week) ?? []).map((event) => {
+                        return (
+                          <tr key={event.id} className="border-t border-slate-100 align-top">
+                            <td className="px-4 py-3 text-sm text-slate-700">{week}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">
+                              {format(new Date(event.date), "dd/MM/yyyy")} - {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-900">{event.title}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{event.description ?? ""}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{event.owner ?? ""}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">
+                              {event.deadline ? format(new Date(event.deadline), "dd/MM/yyyy") : ""}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{event.location ?? ""}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{event.status ?? ""}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{event.result ?? ""}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{event.notes ?? ""}</td>
+                            <td className="px-4 py-3">
+                              <span className="text-sm text-slate-700">
+                                {(attachmentsByEvent.get(event.id) ?? []).length} file
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setModal({ open: true, mode: "edit", event })}
+                                >
+                                  Sửa
+                                </Button>
+                                <Button variant="danger" onClick={() => deleteEvent(event)}>
+                                  Xóa
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -781,61 +568,6 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
         onClose={() => setModal({ open: false, mode: "create" })}
         submitting={submitting}
       />
-
-      <Modal
-        open={detailEvent !== null}
-        onClose={() => setDetailEvent(null)}
-        title="Chi tiết lịch trình"
-      >
-        {detailEvent && (
-          <div className="space-y-3 text-sm text-slate-700">
-            <p className="text-lg font-semibold text-slate-900">{detailEvent.title}</p>
-            <p>
-              <span className="font-semibold">Thời gian:</span>{" "}
-              {format(new Date(detailEvent.date), "dd/MM/yyyy")} | {detailEvent.start_time.slice(0, 5)} - {detailEvent.end_time.slice(0, 5)}
-            </p>
-            <p>
-              <span className="font-semibold">Nhân sự:</span> {detailEvent.owner || "Không có"}
-            </p>
-            <p>
-              <span className="font-semibold">Địa điểm:</span> {detailEvent.location || "Không có"}
-            </p>
-            <p>
-              <span className="font-semibold">Chi tiết công việc:</span>{" "}
-              {detailEvent.description || "Không có"}
-            </p>
-            <p>
-              <span className="font-semibold">Trạng thái:</span> {detailEvent.status || "Không có"}
-            </p>
-            <p>
-              <span className="font-semibold">Kết quả:</span> {detailEvent.result || "Không có"}
-            </p>
-            <p>
-              <span className="font-semibold">Ghi chú:</span> {detailEvent.notes || "Không có"}
-            </p>
-            <div>
-              <p className="font-semibold">Tài liệu:</p>
-              {(attachmentsByEvent.get(detailEvent.id) ?? []).length === 0 ? (
-                <p className="text-slate-600">Không có tài liệu.</p>
-              ) : (
-                <ul className="list-disc pl-5 text-slate-700">
-                  {(attachmentsByEvent.get(detailEvent.id) ?? []).map((file) => (
-                    <li key={file.id}>{file.file_name}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="mt-4 flex gap-2">
-              <Button type="button" variant="outline" onClick={() => openEditModal(detailEvent)}>
-                Sửa
-              </Button>
-              <Button type="button" variant="danger" onClick={() => void deleteEvent(detailEvent)}>
-                Xóa
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
     </main>
   );
 }
