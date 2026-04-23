@@ -321,7 +321,7 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
             Quản Lý Lịch Trình Ông PKD
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Sao chép liên kết để gửi sếp theo dõi lịch trình:{" "}
+            Gửi sếp theo dõi lịch trình:{" "}
             <button
               type="button"
               onClick={copyPublicLink}
@@ -329,15 +329,6 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
             >
               Sao chép liên kết
             </button>
-            {" | "}
-            <a
-              href="/boss"
-              target="_blank"
-              rel="noreferrer"
-              className="font-semibold text-brand-700 underline hover:text-brand-900"
-            >
-              Mở link trực tiếp
-            </a>
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
