@@ -25,7 +25,6 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -39,7 +38,6 @@ import { PRIORITY_OPTIONS } from "@/features/events/constants";
 import { EventFormInput, EventRecord } from "@/features/events/types";
 import { groupEventsByDate, sortEventsByTime } from "@/features/events/utils";
 import { useToast } from "@/hooks/use-toast";
-import { signOutAdmin } from "@/services/auth.service";
 
 interface AdminDashboardProps {
   initialEvents: EventRecord[];
@@ -74,6 +72,12 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
 
   const { notify } = useToast();
   const supabase = createClient();
+  const publicLink = useMemo(() => {
+    if (typeof window === "undefined") {
+      return "/boss";
+    }
+    return `${window.location.origin}/boss`;
+  }, []);
 
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) =>
@@ -367,13 +371,8 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
     await refreshEvents();
   }
 
-  async function handleSignOut() {
-    await signOutAdmin();
-    window.location.href = "/admin/login";
-  }
-
   async function copyPublicLink() {
-    await navigator.clipboard.writeText(`${window.location.origin}/boss`);
+    await navigator.clipboard.writeText(publicLink);
     notify("Đã sao chép liên kết gửi sếp.", "success");
   }
 
@@ -477,25 +476,38 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
             Quản lý lịch trình ông PKD
           </CardTitle>
           <CardDescription className="text-sm text-slate-600">
-            Sao chép liên kết để gửi sếp theo dõi lịch trình.
+            <button
+              type="button"
+              onClick={() => void copyPublicLink()}
+              className="font-semibold text-brand-700 underline-offset-2 hover:text-brand-900 hover:underline"
+            >
+              Sao chép liên kết
+            </button>{" "}
+            để gửi sếp theo dõi lịch trình hoặc{" "}
+            <a
+              href={publicLink}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-brand-700 underline-offset-2 hover:text-brand-900 hover:underline"
+            >
+              mở link trực tiếp
+            </a>
+            .
           </CardDescription>
         </CardHeader>
         <CardContent className="px-5 pb-5">
           <div className="flex flex-wrap gap-2">
-            <Tabs
-              value={viewMode}
-              onValueChange={(value) => setViewMode(value as "overview" | "detail")}
+            <Button
+              variant={viewMode === "overview" ? "primary" : "outline"}
+              onClick={() => setViewMode("overview")}
             >
-              <TabsList>
-                <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-                <TabsTrigger value="detail">Chi tiết</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Button variant="outline" onClick={copyPublicLink}>
-              Sao chép liên kết gửi sếp
+              Tổng quan
             </Button>
-            <Button variant="ghost" onClick={handleSignOut}>
-              Đăng xuất
+            <Button
+              variant={viewMode === "detail" ? "primary" : "outline"}
+              onClick={() => setViewMode("detail")}
+            >
+              Chi tiết
             </Button>
           </div>
         </CardContent>
