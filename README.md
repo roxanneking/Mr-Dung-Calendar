@@ -9,6 +9,7 @@ Web app lịch trình cho sếp, tách rõ `admin` và `boss view`.
 
 - Next.js 14 (App Router) + TypeScript
 - Tailwind CSS
+- Font: Nunito (Google Font)
 - Supabase (Postgres, Auth, RLS, Storage)
 - Deploy: Vercel
 
@@ -142,14 +143,16 @@ npm run dev
 - Trang admin:
   - Thêm/sửa/xóa lịch
   - Dropdown trạng thái: `Mới`, `Đang xử lý`, `Hoàn thành`
-  - Upload/xóa tài liệu trong popup lịch
+  - Upload tài liệu bằng kéo-thả hoặc bấm chọn file
+  - Xóa tài liệu trong popup lịch
   - Xem chi tiết theo tuần `W1..W5`
   - Filter theo tháng + khoảng ngày
   - Xuất file Excel `.xlsx` theo dữ liệu đã lọc
+  - Ở `Tổng quan`: có thao tác `Sao chép | Mở trực tiếp` link boss
 - Trang sếp (`/boss`):
   - Xem lịch tháng + chi tiết theo ngày
-  - Xem tóm tắt công việc
-  - Hiển thị tài liệu gọn theo từng lịch
+  - Xem tóm tắt công việc + nhãn nhanh `Hôm qua/Hôm nay/Ngày mai`
+  - Popup chi tiết lịch có icon thông tin và link tài liệu đính kèm
 
 ## 8. Deploy Vercel (nhánh chính: `hdi-calendar`)
 

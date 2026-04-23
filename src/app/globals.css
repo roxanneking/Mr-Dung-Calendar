@@ -15,7 +15,6 @@ body {
   min-height: 100vh;
   background: linear-gradient(180deg, #f7fdfa 0%, #ffffff 48%);
   color: #0f172a;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 a {

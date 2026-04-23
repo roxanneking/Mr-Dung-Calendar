@@ -34,7 +34,7 @@ export default function AdminLoginPage() {
     <main className="mx-auto flex min-h-screen w-full max-w-7xl items-center justify-center px-4">
       <div className="w-full max-w-md rounded-2xl border border-brand-100 bg-white p-6 shadow-soft">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-          Admin only
+          Chỉ dành cho quản trị
         </p>
         <h1 className="mt-2 text-2xl font-semibold text-brand-950">
           Đăng nhập quản trị
