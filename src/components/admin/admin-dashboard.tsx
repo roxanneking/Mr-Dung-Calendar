@@ -327,7 +327,7 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
               onClick={copyPublicLink}
               className="font-semibold text-brand-700 underline hover:text-brand-900"
             >
-              Sao chép liên kết
+              Sao chép
             </button>
             {" | "}
             <a
@@ -336,7 +336,7 @@ export function AdminDashboard({ initialEvents }: AdminDashboardProps) {
               rel="noreferrer"
               className="font-semibold text-brand-700 underline hover:text-brand-900"
             >
-              Mở link trực tiếp
+              Mở trực tiếp
             </a>
           </p>
         </div>
