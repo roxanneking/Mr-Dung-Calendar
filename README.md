@@ -1,147 +1,176 @@
 # Calendar Mr Dũng
 
-Web app lịch trình cho sếp với 2 khu vực tách biệt:
+Web app lịch trình cho sếp, tách rõ `admin` và `boss view`.
 
-- Public: không đăng nhập, chỉ xem lịch (`/`)
-- Admin: bắt buộc đăng nhập, chỉ admin thêm/sửa/xóa (`/admin`)
+- Admin: đăng nhập để thêm/sửa/xóa lịch, upload tài liệu, xuất Excel
+- Boss: chỉ xem lịch và tài liệu, không đăng nhập
 
-Stack:
+## 1. Stack công nghệ
 
-- Next.js (App Router) + TypeScript
+- Next.js 14 (App Router) + TypeScript
 - Tailwind CSS
-- Supabase (Postgres + Auth + RLS)
+- Supabase (Postgres, Auth, RLS, Storage)
 - Deploy: Vercel
 
-## 1. Kiến trúc thư mục
+## 2. Luồng route hiện tại
+
+- `/` -> redirect sang `/admin/login` (entry chính cho admin)
+- `/admin/login` -> trang đăng nhập admin
+- `/admin` -> trang quản trị lịch (bắt buộc đăng nhập)
+- `/boss` -> trang xem lịch cho sếp (không login)
+
+## 3. Phân quyền
+
+- Public/Boss:
+  - Không đăng nhập
+  - Được đọc `events` và `event_attachments`
+  - Không có quyền ghi dữ liệu
+- Admin:
+  - Đăng nhập Supabase Auth
+  - Chỉ user có trong `public.admin_users` mới được `insert/update/delete`
+  - Upload/xóa file trong bucket `event-documents`
+
+## 4. Cấu trúc thư mục chính
 
 ```text
 .
 ├── supabase
-│   ├── schema.sql            # Tạo bảng, index, trigger
-│   ├── policies.sql          # RLS policies
-│   └── seed.sql              # Dữ liệu mẫu
+│   ├── schema.sql
+│   ├── policies.sql
+│   ├── seed.sql
+│   └── migrations
+│       ├── 20260422_add_event_detail_columns.sql
+│       ├── 20260422_create_event_attachments.sql
+│       └── 20260422_create_event_documents_bucket.sql
 ├── src
 │   ├── app
-│   │   ├── page.tsx          # Public page (xem lịch)
-│   │   ├── admin
-│   │   │   ├── login/page.tsx# Admin login
-│   │   │   └── page.tsx      # Admin dashboard CRUD
-│   │   ├── layout.tsx
-│   │   └── globals.css
+│   │   ├── page.tsx                # redirect admin login
+│   │   ├── boss/page.tsx           # trang sếp
+│   │   └── admin
+│   │       ├── login/page.tsx
+│   │       └── page.tsx
 │   ├── components
-│   │   ├── public            # UI public view
-│   │   ├── admin             # UI admin CRUD
-│   │   ├── calendar          # Month calendar
-│   │   ├── events            # Day event panel
-│   │   └── ui                # Base reusable components
+│   │   ├── admin
+│   │   ├── public
+│   │   ├── calendar
+│   │   ├── events
+│   │   └── ui
 │   ├── features
-│   │   └── events
-│   │       ├── types.ts
-│   │       ├── constants.ts
-│   │       ├── utils.ts
-│   │       └── services/events.service.ts
-│   ├── services
-│   │   └── auth.service.ts
-│   ├── hooks
-│   │   └── use-toast.tsx
+│   │   ├── events
+│   │   └── attachments
 │   ├── supabase
-│   │   ├── client.ts
-│   │   ├── server.ts
-│   │   └── middleware.ts
+│   ├── services
+│   ├── hooks
 │   └── lib
-│       └── utils.ts
-├── middleware.ts             # Chặn route /admin nếu chưa login
+├── middleware.ts                    # chặn /admin nếu chưa login
+├── next.config.mjs
 └── .env.example
 ```
 
-## 2. Luồng phân quyền
+## 5. Cài đặt local
 
-- Public user:
-  - Không đăng nhập
-  - Truy cập `/` xem lịch
-  - Chỉ có quyền `SELECT` trên bảng `events` qua RLS
-- Admin/employee:
-  - Đăng nhập tại `/admin/login`
-  - Vào `/admin` để CRUD
-  - Chỉ user có trong `admin_users` mới có quyền `INSERT/UPDATE/DELETE`
-
-## 3. Cài đặt local
-
-1. Cài dependencies:
+1. Cài package:
 
 ```bash
 npm install
 ```
 
-2. Tạo file môi trường:
+2. Tạo env:
 
 ```bash
 cp .env.example .env.local
 ```
 
-3. Điền giá trị:
+3. Điền biến môi trường:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY` (dự phòng cho tác vụ server-side đặc biệt)
+- `NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon_key>`
+- `SUPABASE_SERVICE_ROLE_KEY=<service_role_key>`
 
-4. Chạy SQL trong Supabase SQL Editor theo thứ tự:
+Lưu ý:
+- Không dùng URL dạng `/rest/v1/` cho `NEXT_PUBLIC_SUPABASE_URL`.
 
-- `supabase/schema.sql`
-- `supabase/policies.sql`
-- `supabase/seed.sql`
+4. Chạy SQL theo thứ tự trong Supabase SQL Editor:
 
-5. Tạo tài khoản admin trong Supabase Auth (Email/Password).
+```text
+supabase/schema.sql
+supabase/policies.sql
+supabase/migrations/20260422_add_event_detail_columns.sql
+supabase/migrations/20260422_create_event_attachments.sql
+supabase/migrations/20260422_create_event_documents_bucket.sql
+supabase/seed.sql
+```
 
-6. Thêm user admin vào bảng `public.admin_users`:
+5. Tạo user admin ở Supabase Auth.
+
+6. Map admin vào bảng `admin_users`:
 
 ```sql
 insert into public.admin_users (user_id)
 values ('<AUTH_USER_UUID>');
 ```
 
-7. Chạy app:
+7. Chạy local:
 
 ```bash
 npm run dev
 ```
 
-## 4. SQL tóm tắt
+## 6. Mô hình dữ liệu
 
 ### Bảng `events`
 
-- `id`
-- `title`
-- `date`
-- `start_time`
-- `end_time`
-- `location`
-- `description`
-- `category`
-- `color`
-- `created_by`
-- `created_at`
-- `updated_at`
+- Core lịch: `title`, `date`, `start_time`, `end_time`, `location`, `description`
+- Ưu tiên/hiển thị: `category`, `color`
+- Cột chi tiết: `owner`, `deadline`, `status`, `result`, `notes`
+- Audit: `created_by`, `created_at`, `updated_at`
 
-### RLS policies
+### Bảng `event_attachments`
 
-- Public read: cho phép `anon` và `authenticated` đọc lịch
-- Write protection: chỉ `authenticated` và có mapping trong `admin_users` mới được `insert/update/delete`
-- Route protection: middleware chặn truy cập `/admin` nếu chưa login
+- `event_id` liên kết sang `events`
+- `file_name`, `file_path`, `file_size`, `mime_type`
+- `created_by`, `created_at`
 
-## 5. Deploy Vercel
+### Storage
 
-1. Push source lên Git.
-2. Import project vào Vercel.
+- Bucket: `event-documents` (public)
+- Cho phép upload các loại: `pdf, doc, docx, xls, xlsx, png, jpg, jpeg`
+- Giới hạn app: tối đa 5 file/lịch, tối đa 10MB/file
+
+## 7. Chức năng hiện có
+
+- Trang admin:
+  - Thêm/sửa/xóa lịch
+  - Dropdown trạng thái: `Mới`, `Đang xử lý`, `Hoàn thành`
+  - Upload/xóa tài liệu trong popup lịch
+  - Xem chi tiết theo tuần `W1..W5`
+  - Filter theo tháng + khoảng ngày
+  - Xuất file Excel `.xlsx` theo dữ liệu đã lọc
+- Trang sếp (`/boss`):
+  - Xem lịch tháng + chi tiết theo ngày
+  - Xem tóm tắt công việc
+  - Hiển thị tài liệu gọn theo từng lịch
+
+## 8. Deploy Vercel (nhánh chính: `hdi-calendar`)
+
+1. Vào Vercel `Project Settings -> Git`.
+2. Đặt `Production Branch = hdi-calendar`.
 3. Set env vars giống `.env.local`.
-4. Deploy.
-5. Kiểm tra:
-   - `/` mở trực tiếp lịch, không login
-   - `/admin` chưa login phải bị chuyển về `/admin/login`
-   - login admin thành công thì CRUD bình thường
+4. Redeploy.
+5. Verify sau deploy:
+   - `/admin/login` vào được
+   - `/admin` cần login
+   - `/boss` xem được lịch
+   - Admin thêm lịch + upload file + xuất `.xlsx` chạy được
 
-## 6. Ghi chú bảo trì
+### Nếu gặp lỗi `Cannot read properties of undefined (reading 'fsPath')`
 
-- Dự án ưu tiên free-tier, đơn giản, dễ maintain.
-- Không dùng backend riêng: dùng Supabase + RLS để chặn trực tiếp ở data layer.
-- UI public không chứa bất kỳ nút quản trị nào.
+- Kiểm tra log dòng `Branch` và `Commit` trong deployment.
+- Đảm bảo Vercel đang build đúng `hdi-calendar` với commit mới, không phải commit cũ `045244`.
+- Trigger redeploy sau khi xác nhận branch/commit.
+
+## 9. Bàn giao vận hành
+
+- Mọi thao tác code/deploy hiện theo nhánh `hdi-calendar`.
+- Không đổi schema ngoài các file SQL trong `supabase/` và `supabase/migrations/`.
+- Khi phát sinh lỗi CRUD do RLS, kiểm tra đầu tiên là `public.admin_users` có mapping đúng UID admin hay chưa.
