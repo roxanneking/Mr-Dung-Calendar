@@ -23,7 +23,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardContent
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle
 } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Separator } from "@/components/ui/separator";
@@ -74,11 +77,11 @@ export function DayEventsPanel({
 
   return (
     <Card className="rounded-2xl border border-brand-100 bg-white py-0 shadow-soft ring-0">
-      <div className="px-5 pt-4 pb-2">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold tracking-wide uppercase text-slate-500">
-            Tóm tắt công việc
-          </p>
+      <CardHeader className="px-5 py-3">
+        <CardTitle className="text-xs font-semibold tracking-wide uppercase text-slate-500">
+          Tóm tắt công việc
+        </CardTitle>
+        <CardAction>
           <div className="flex gap-2">
             <Button type="button" variant="outline" className="h-8 px-2" onClick={onPrevDate}>
               <ChevronLeft className="h-4 w-4" />
@@ -87,8 +90,8 @@ export function DayEventsPanel({
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-        </div>
-      </div>
+        </CardAction>
+      </CardHeader>
       <Separator className="bg-brand-100" />
 
       <CardContent className="space-y-3 px-5 pt-2 pb-4">
