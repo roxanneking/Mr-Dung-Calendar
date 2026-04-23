@@ -169,8 +169,30 @@ npm run dev
 - Đảm bảo Vercel đang build đúng `hdi-calendar` với commit mới, không phải commit cũ `045244`.
 - Trigger redeploy sau khi xác nhận branch/commit.
 
-## 9. Bàn giao vận hành
+## 9. Luồng chuyển giao (handover)
 
-- Mọi thao tác code/deploy hiện theo nhánh `hdi-calendar`.
-- Không đổi schema ngoài các file SQL trong `supabase/` và `supabase/migrations/`.
-- Khi phát sinh lỗi CRUD do RLS, kiểm tra đầu tiên là `public.admin_users` có mapping đúng UID admin hay chưa.
+1. Chốt nguồn code:
+   - Repo phải checkout đúng nhánh `hdi-calendar`.
+   - Tất cả thay đổi bàn giao phải có commit rõ ràng trên nhánh này.
+
+2. Chốt Supabase:
+   - Xác nhận env đang dùng đúng project Supabase production.
+   - Chạy đủ SQL theo thứ tự ở mục `5. Cài đặt local` (nếu môi trường mới).
+   - Xác nhận đã map UID admin vào `public.admin_users`.
+
+3. Chốt Vercel:
+   - `Production Branch` phải là `hdi-calendar`.
+   - Env vars trên Vercel phải khớp với project Supabase production.
+   - Redeploy và kiểm tra đúng commit mới nhất của `hdi-calendar`.
+
+4. Checklist nghiệm thu sau bàn giao:
+   - `/admin/login` đăng nhập được.
+   - `/admin` tạo/sửa/xóa lịch được.
+   - Upload tối đa 5 file/lịch hoạt động, xóa file hoạt động.
+   - Xuất file Excel `.xlsx` từ chế độ Chi tiết hoạt động.
+   - `/boss` xem lịch và tài liệu đính kèm được (read-only).
+
+5. Cách xử lý nhanh lỗi thường gặp:
+   - Lỗi RLS khi thêm/sửa/xóa: kiểm tra `public.admin_users` và policy trong `supabase/policies.sql`.
+   - Lỗi deploy kiểu `fsPath`: kiểm tra Vercel có build đúng nhánh `hdi-calendar` và commit mới nhất.
+   - Lỗi upload: kiểm tra bucket `event-documents` và policy storage đã tạo đủ.
