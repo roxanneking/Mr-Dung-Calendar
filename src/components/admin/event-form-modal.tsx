@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type FormEvent
+} from "react";
+import { UploadCloud } from "lucide-react";
 
 import {
   PRIORITY_OPTIONS,
@@ -58,6 +66,8 @@ export function EventFormModal({
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [attachments, setAttachments] = useState<EventAttachmentRecord[]>([]);
   const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<string[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -95,8 +105,7 @@ export function EventFormModal({
     await onSubmit(form, newFiles, deletedAttachmentIds);
   }
 
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const selected = Array.from(event.target.files ?? []);
+  function addSelectedFiles(selected: File[]) {
     const allowedTypes = [
       "application/pdf",
       "application/msword",
@@ -115,7 +124,29 @@ export function EventFormModal({
     const finalFiles = validFiles.slice(0, maxRemaining);
 
     setNewFiles((prev) => [...prev, ...finalFiles]);
+  }
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files ?? []);
+    addSelectedFiles(selected);
     event.target.value = "";
+  }
+
+  function handleDragOver(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragging(true);
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragging(false);
+  }
+
+  function handleDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragging(false);
+    const dropped = Array.from(event.dataTransfer.files ?? []);
+    addSelectedFiles(dropped);
   }
 
   function removeNewFile(fileName: string) {
@@ -196,7 +227,7 @@ export function EventFormModal({
             <Input
               value={form.owner}
               onChange={(e) => setForm((prev) => ({ ...prev, owner: e.target.value }))}
-              placeholder="Ví dụ: Mrs Hà"
+              placeholder="Ví dụ: Chị Hà"
             />
           </div>
           <div>
@@ -225,7 +256,7 @@ export function EventFormModal({
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Deadline
+              Hạn chót
             </label>
             <Input
               type="date"
@@ -292,15 +323,36 @@ export function EventFormModal({
             />
           </div>
           <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-            <p className="mb-2 font-medium text-slate-700">Đăng tải tài liệu (tối đa 5 file)</p>
-            <Input
+            <p className="mb-2 font-medium text-slate-700">Đăng tải tài liệu (tối đa 5 tệp)</p>
+            <input
+              ref={fileInputRef}
               type="file"
               multiple
               onChange={handleFileChange}
               accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+              className="hidden"
             />
+            <label
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-6 text-center transition ${
+                dragging
+                  ? "border-brand-500 bg-brand-50"
+                  : "border-brand-200 bg-white hover:border-brand-400 hover:bg-brand-50/60"
+              }`}
+            >
+              <UploadCloud className="mb-2 h-6 w-6 text-brand-700" />
+              <p className="text-base font-semibold text-brand-900">
+                Kéo và thả tệp vào đây hoặc bấm để chọn
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Còn tối đa {Math.max(0, 5 - attachments.length - newFiles.length)} tệp
+              </p>
+            </label>
             <p className="mt-2 text-xs text-slate-500">
-              Hỗ trợ: pdf, doc/docx, xls/xlsx, png/jpg/jpeg. Mỗi file tối đa 10MB.
+              Hỗ trợ: pdf, doc/docx, xls/xlsx, png/jpg/jpeg. Mỗi tệp tối đa 10MB.
             </p>
           </div>
           <div className="md:col-span-2 rounded-xl border border-slate-200 bg-white p-3 text-sm">
