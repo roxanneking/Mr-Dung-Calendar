@@ -27,23 +27,31 @@ export function PublicCalendarView({ events, attachmentsByEvent }: PublicCalenda
   }, [eventsByDate, selectedDate]);
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-8">
-      <div className="mb-6 rounded-2xl border border-brand-100 bg-white p-5 shadow-soft">
-        <h1 className="text-2xl font-semibold text-brand-950">
-          Lịch Trình Công Việc Mr Dũng
-        </h1>
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-8 lg:py-8">
+      <div className="mb-6 rounded-2xl border border-brand-100 bg-white p-5 shadow-soft md:p-6">
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+          Boss View
+        </p>
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight text-brand-950 md:text-3xl">
+            Lịch Trình Công Việc Mr Dũng
+          </h1>
+          <p className="text-sm text-slate-600">Theo dõi lịch, tài liệu, tiến độ theo ngày</p>
+        </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-        <span className="font-medium">Ghi chú:</span>
-        {PRIORITY_OPTIONS.map((priority) => (
-          <Badge
-            key={priority.value}
-            style={{ backgroundColor: priority.color, color: "#ffffff" }}
-          >
-            {priority.label}
-          </Badge>
-        ))}
+      <div className="mb-4 rounded-xl border border-brand-100 bg-white p-3 shadow-soft">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+          <span className="font-semibold text-slate-700">Mức ưu tiên:</span>
+          {PRIORITY_OPTIONS.map((priority) => (
+            <Badge
+              key={priority.value}
+              style={{ backgroundColor: priority.color, color: "#ffffff" }}
+            >
+              {priority.label}
+            </Badge>
+          ))}
+        </div>
       </div>
 
       <div className="mb-6">

@@ -41,25 +41,28 @@ export function MonthCalendar({
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   const monthLabel = format(month, "MMMM yyyy", { locale: vi });
   const formattedMonthLabel = `${monthLabel.charAt(0).toUpperCase()}${monthLabel.slice(1)}`;
+  const weekDays = ["Th 2", "Th 3", "Th 4", "Th 5", "Th 6", "Th 7", "CN"];
 
   return (
-    <section className="rounded-2xl border border-brand-100 bg-white p-5 shadow-soft">
-      <header className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-brand-900">
+    <section className="rounded-2xl border border-brand-100 bg-white p-5 shadow-soft md:p-6">
+      <header className="mb-4 flex items-center justify-between border-b border-brand-100 pb-3">
+        <h2 className="text-xl font-semibold tracking-tight text-brand-900 md:text-2xl">
           {formattedMonthLabel}
         </h2>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={() => onMonthChange(subMonths(month, 1))}
-            className="rounded-lg border border-brand-200 p-2 text-brand-800 hover:bg-brand-50"
+            className="rounded-lg border border-brand-200 p-2 text-brand-800 transition hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
+            aria-label="Tháng trước"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
           <button
             type="button"
             onClick={() => onMonthChange(addMonths(month, 1))}
-            className="rounded-lg border border-brand-200 p-2 text-brand-800 hover:bg-brand-50"
+            className="rounded-lg border border-brand-200 p-2 text-brand-800 transition hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
+            aria-label="Tháng sau"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -68,8 +71,8 @@ export function MonthCalendar({
 
       <div className="overflow-x-auto">
         <div className="min-w-[720px]">
-          <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase text-slate-500">
-            {["Th 2", "Th 3", "Th 4", "Th 5", "Th 6", "Th 7", "CN"].map((day) => (
+          <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {weekDays.map((day) => (
               <div key={day}>{day}</div>
             ))}
           </div>
@@ -86,9 +89,9 @@ export function MonthCalendar({
                   type="button"
                   onClick={() => onSelectedDateChange(day)}
                   className={cn(
-                    "group min-h-[84px] rounded-xl border p-2 text-left transition",
+                    "group min-h-[92px] rounded-xl border p-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200",
                     isSameMonth(day, month)
-                      ? "border-brand-100 bg-white hover:border-brand-300"
+                      ? "border-brand-100 bg-white hover:border-brand-300 hover:bg-brand-50/40"
                       : "border-slate-100 bg-slate-50/70 text-slate-400",
                     isSameDay(day, selectedDate) &&
                       "border-brand-600 ring-2 ring-brand-200",
@@ -98,7 +101,7 @@ export function MonthCalendar({
                   <div className="mb-2 flex items-center justify-between">
                     <span
                       className={cn(
-                        "text-sm font-semibold",
+                        "text-sm font-semibold tabular-nums",
                         isToday ? "text-brand-800" : "text-slate-700"
                       )}
                     >

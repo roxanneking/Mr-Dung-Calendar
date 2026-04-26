@@ -71,29 +71,35 @@ export function DayEventsPanel({
     ? attachmentsByEvent?.get(detailEvent.id) ?? []
     : [];
   const selectedDateLabel = format(selectedDate, "EEEE, dd/MM/yyyy", { locale: vi });
+  const sectionLabel = mode === "admin" ? "Lịch theo ngày" : "Tóm tắt công việc";
 
   return (
-    <section className="rounded-2xl border border-brand-100 bg-white p-5 shadow-soft">
-      <div className="mb-2 flex items-center justify-between border-b border-brand-100 pb-2">
+    <section className="rounded-2xl border border-brand-100 bg-white p-5 shadow-soft md:p-6">
+      <div className="mb-3 flex items-center justify-between border-b border-brand-100 pb-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Tóm tắt công việc
+          {sectionLabel}
         </p>
         <div className="flex gap-2">
-          <Button type="button" variant="outline" className="h-8 px-2" onClick={onPrevDate}>
+          <Button type="button" variant="outline" className="h-8 px-2.5" onClick={onPrevDate}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button type="button" variant="outline" className="h-8 px-2" onClick={onNextDate}>
+          <Button type="button" variant="outline" className="h-8 px-2.5" onClick={onNextDate}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h3 className="text-lg font-semibold text-brand-900">{selectedDateLabel}</h3>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <h3 className="text-lg font-semibold capitalize text-brand-900 md:text-xl">
+          {selectedDateLabel}
+        </h3>
         {dayNote && (
           <Badge className="bg-brand-100 text-brand-900">
             {dayNote}
           </Badge>
         )}
+        <p className="ml-auto text-sm text-slate-500">
+          {events.length} lịch trình
+        </p>
       </div>
 
       {events.length === 0 ? (
@@ -101,61 +107,58 @@ export function DayEventsPanel({
           Chưa có lịch trình cho ngày này.
         </div>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-3.5">
           {events.map((event) => {
             const priority = getPriorityMeta(event.category);
             return (
-              <li
-                key={event.id}
-                className="rounded-xl border border-slate-100 bg-white p-4"
-              >
-              <div className="mb-2 flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold text-slate-900">{event.title}</p>
-                  <p className="mt-1 flex items-center gap-1 text-sm text-slate-600">
-                    <Timer className="h-4 w-4" />
-                    {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
-                  </p>
+              <li key={event.id} className="rounded-xl border border-slate-200 bg-slate-50/35 p-4">
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-900">{event.title}</p>
+                    <p className="mt-1 flex items-center gap-1 text-sm text-slate-600">
+                      <Timer className="h-4 w-4" />
+                      {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
+                    </p>
+                  </div>
+                  <Badge
+                    style={{
+                      backgroundColor: priority.color,
+                      color: "#ffffff"
+                    }}
+                  >
+                    {priority.label}
+                  </Badge>
                 </div>
-                <Badge
-                  style={{
-                    backgroundColor: priority.color,
-                    color: "#ffffff"
-                  }}
-                >
-                  {priority.label}
-                </Badge>
-              </div>
 
-              <div className="space-y-1 text-sm text-slate-600">
-                {event.location && (
-                  <p className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
-                    {event.location}
-                  </p>
-                )}
-                {event.owner && (
-                  <p className="flex items-center gap-1">
-                    <User className="h-4 w-4" />
-                    {event.owner}
-                  </p>
-                )}
-                {event.description && (
-                  <p className="flex items-start gap-1">
-                    <NotebookText className="mt-0.5 h-4 w-4" />
-                    <span>{event.description}</span>
-                  </p>
-                )}
-              </div>
-              <div className="mt-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setDetailEvent(event)}
-                  className="text-sm font-semibold text-brand-700 hover:text-brand-900"
-                >
-                  Chi tiết
-                </button>
-              </div>
+                <div className="space-y-1.5 text-sm text-slate-600">
+                  {event.location && (
+                    <p className="flex items-center gap-1.5">
+                      <MapPin className="h-4 w-4 text-slate-500" />
+                      {event.location}
+                    </p>
+                  )}
+                  {event.owner && (
+                    <p className="flex items-center gap-1.5">
+                      <User className="h-4 w-4 text-slate-500" />
+                      {event.owner}
+                    </p>
+                  )}
+                  {event.description && (
+                    <p className="flex items-start gap-1.5">
+                      <NotebookText className="mt-0.5 h-4 w-4 text-slate-500" />
+                      <span>{event.description}</span>
+                    </p>
+                  )}
+                </div>
+                <div className="mt-2.5 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setDetailEvent(event)}
+                    className="rounded-md px-2 py-1 text-sm font-semibold text-brand-700 transition hover:bg-brand-50 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
+                  >
+                    Chi tiết
+                  </button>
+                </div>
               </li>
             );
           })}
@@ -181,11 +184,12 @@ export function DayEventsPanel({
               </Badge>
             </div>
 
-            <div className="space-y-2 text-slate-700">
+            <div className="space-y-2.5 text-slate-700">
               <p className="flex items-center gap-2">
                 <CalendarClock className="h-4 w-4 text-brand-700" />
                 <span>
-                  {format(new Date(detailEvent.date), "dd/MM/yyyy")} | {detailEvent.start_time.slice(0, 5)} - {detailEvent.end_time.slice(0, 5)}
+                  {format(new Date(detailEvent.date), "dd/MM/yyyy")} |{" "}
+                  {detailEvent.start_time.slice(0, 5)} - {detailEvent.end_time.slice(0, 5)}
                 </span>
               </p>
               <p className="flex items-center gap-2">
@@ -226,7 +230,7 @@ export function DayEventsPanel({
                         href={buildAttachmentUrl(attachment.file_path)}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-sm text-brand-700 underline hover:text-brand-900"
+                        className="text-sm text-brand-700 underline underline-offset-2 transition hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
                       >
                         {attachment.file_name}
                       </a>
